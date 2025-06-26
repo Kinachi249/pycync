@@ -4,9 +4,9 @@ from typing import Any
 
 from aiohttp import ClientSession, ClientResponseError
 
-from .const import GE_CORP_ID, REST_API_BASE_URL
-from .exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError
-from .user import User
+from pycync.const import GE_CORP_ID, REST_API_BASE_URL
+from pycync.exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError
+from pycync.core.user import User
 
 
 class Auth:
@@ -64,27 +64,22 @@ class Auth:
         url: str,
         method: str = "GET",
         extra_params: dict[str, Any] | None = None,
-        data: bytes | None = None,
         json: dict[Any, Any] | None = None,
         raise_for_status: bool = True,
     ) -> dict:
         """some stuff"""
-        params = {}
-        if extra_params:
-            params.update(extra_params)
-
-        kwargs: dict[str, Any] = {
-            "params": params,
-        }
         headers = {"User-Agent": self.user_agent}
+        if self.user:
+            headers["Access-Token"] = self.user.access_token
 
         try:
             try:
-                body = dumps(json)
+                if json:
+                    body = dumps(json)
 
-                resp = await self.session.request(
-                    method, url, headers=headers, data=body, **kwargs
-                )
+                    resp = await self.session.request(method, url, headers=headers, data=body)
+                else:
+                    resp = await self.session.request(method, url, headers=headers)
             except Exception:
                 raise Exception(f"Generic Exception on Request")
                 # TODO implement
