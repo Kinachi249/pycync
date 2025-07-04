@@ -14,3 +14,6 @@ class MissingAuthError(Exception):
 
 class BadRequestError(Exception):
     """For HTTP 400 Responses."""
+
+class UnsupportedCapabilityError(Exception):
+    """When a property that the device doesn't support is attempted to be accessed."""
