@@ -1,10 +1,18 @@
+"""
+Module containing device capability related information.
+All info in this module was pulled from the Cync app, and should not be manually modified
+unless the changes come directly from the app's information.
+
+Note that just because a device is listed here, does not necessarily mean this library supports it.
+This is here to establish a complete list of capabilities so implementing devices in the future has fewer steps.
+
+List last updated from Android app version 6.20.0.54634-60b11b1f5
+"""
+
 from enum import Enum
 
 class CyncCapability(Enum):
-    """
-    List of all possible capabilities for a device.
-    List was constructed from the Cync app.
-    """
+    """List of all possible capabilities for a device."""
     COMMISSION = "Commission"
     EDIT_NAME = "EditName"
     DELETE = "Delete"
@@ -73,7 +81,8 @@ class CyncCapability(Enum):
     ON_OFF_OBSERVER = "OnOffObserver"
     OUTDOOR = "Outdoor"
 
-
+# Map of device type IDs to their capabilities.
+# Human-readable device type names have been added as comments for convenience.
 DEVICE_CAPABILITIES = {
     # FullColorStripGen1Standalone
     8: [CyncCapability.SET_MESH_ADDRESS, CyncCapability.COMMISSION, CyncCapability.EDIT_NAME, CyncCapability.DELETE,
