@@ -1,3 +1,6 @@
+import asyncio
+from typing import Callable, Any
+
 from pycync import Auth
 from pycync.devices import create_device, CyncDevice
 from pycync.exceptions import MissingAuthError
@@ -19,13 +22,14 @@ class Cync:
 
         return self._auth.user
 
-    def track_devices(self, devices: list[CyncDevice]):
+    async def track_devices(self, devices: list[CyncDevice], on_data_update: Callable[[dict[str, Any]], None]):
         """Track devices."""
-        self._command_client = CommandClient(devices, self._auth.user)
+        self._command_client = CommandClient(devices, self._auth.user, on_data_update)
+        await asyncio.sleep(0.5)
 
-    async def update_device_states(self):
+    def update_device_states(self):
         """Update device states."""
-        await self._command_client.update_devices()
+        asyncio.create_task(self._command_client.update_mesh_devices())
 
     async def get_device_list(self):
         """Get list of devices."""

@@ -3,18 +3,23 @@ import logging
 import ssl
 import struct
 import threading
+from typing import Any, Callable
 
 from pycync import CyncDevice, User
+from pycync.devices import CyncLight
 
 from pycync.management import packet_builder as PacketBuilder
+from .packet_parser import parse_packet
+from .const import MessageType, PipeCommandCode
 
 
 class CommandClient:
     _LOGGER = logging.getLogger(__name__)
 
-    def __init__(self, devices: list[CyncDevice], user: User):
+    def __init__(self, devices: list[CyncDevice], user: User, on_data_update: Callable[[dict[str, Any]], None]):
         self._devices = devices
         self._user = user
+        self._on_data_update = on_data_update
 
         self._client_closed = False
         self._loop = None
@@ -79,11 +84,22 @@ class CommandClient:
             if len(data) == 0:
                 self.logged_in = False
                 raise ConnectionClosedError
-            while len(data) > 0:
-                packet_type = int(data[0])
+            while data:
                 packet_length = struct.unpack(">I", data[1:5])[0]
-                print(f"Packet type {packet_type}, packet length {packet_length}")
-                print(f"{data[:packet_length + 5]}")
+                packet = data[:packet_length + 5]
+                try:
+                    parsed_packet = parse_packet(packet)
+                except NotImplementedError:
+                    # Simply ignore the packet for now
+                    data = data[packet_length + 5:]
+                    continue
+
+                match parsed_packet.message_type:
+                    case MessageType.PIPE.value:
+                        if parsed_packet.inner_frame:
+                            if parsed_packet.inner_frame.command_type == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
+                                self._on_data_update(parsed_packet.inner_frame.data)
+
                 data = data[packet_length + 5:]
 
         raise ShuttingDown
@@ -95,13 +111,14 @@ class CommandClient:
             await self.writer.drain()
         raise ShuttingDown
 
-    async def update_devices(self):
+    async def update_mesh_devices(self):
         """Get new device state."""
-        for device in self._devices:
-            device_id = device.device_id
-            state_request_packet = PacketBuilder.build_probe_request_packet(device_id)
-            self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
-            await asyncio.sleep(1)
+        hub_device = [device for device in self._devices if device.is_online and isinstance(device, CyncLight)][0]
+        print(f"Updating device states with device ID {hub_device.device_id}")
+
+        device_id = hub_device.device_id
+        state_request_packet = PacketBuilder.build_state_query_request_packet(device_id)
+        self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
 
     def _send_request(self, request):
         async def send():
