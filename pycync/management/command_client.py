@@ -8,9 +8,10 @@ from typing import Any, Callable
 from pycync import CyncDevice, User
 from pycync.devices import CyncLight
 
+from .packet_parser import PacketParser
 from pycync.management import packet_builder as PacketBuilder
-from .packet_parser import parse_packet
 from .const import MessageType, PipeCommandCode
+from ..exceptions import NoHubConnectedError, CyncError
 
 
 class CommandClient:
@@ -20,6 +21,7 @@ class CommandClient:
         self._devices = devices
         self._user = user
         self._on_data_update = on_data_update
+        self._packet_parser = PacketParser(self._devices)
 
         self._client_closed = False
         self._loop = None
@@ -50,6 +52,7 @@ class CommandClient:
                 await asyncio.sleep(5)
             else:
                 await self._log_in()
+                await self._probe_devices()
 
                 read_tcp_messages = asyncio.create_task(self._read_packets(), name="Read TCP Messages")
                 maintain_connection = asyncio.create_task(self._send_pings(), name="Maintain Connection")
@@ -78,6 +81,12 @@ class CommandClient:
         self.writer.write(login_request_packet)
         await self.writer.drain()
 
+    async def _probe_devices(self):
+        for device in self._devices:
+            probe_device_packet = PacketBuilder.build_probe_request_packet(device.device_id)
+            self.writer.write(probe_device_packet)
+            await self.writer.drain()
+
     async def _read_packets(self):
         while not self._client_closed:
             data = await self.reader.read(1500)
@@ -88,17 +97,22 @@ class CommandClient:
                 packet_length = struct.unpack(">I", data[1:5])[0]
                 packet = data[:packet_length + 5]
                 try:
-                    parsed_packet = parse_packet(packet)
+                    parsed_packet = self._packet_parser.parse_packet(packet)
                 except NotImplementedError:
                     # Simply ignore the packet for now
                     data = data[packet_length + 5:]
                     continue
 
                 match parsed_packet.message_type:
+                    case MessageType.PROBE.value if parsed_packet.version != 0:
+                        device = next(device for device in self._devices if device.device_id == parsed_packet.device_id)
+                        device.set_wifi_connected(True)
+                    case MessageType.SYNC.value:
+                        print(parsed_packet.data)
+                        self._on_data_update(parsed_packet.data)
                     case MessageType.PIPE.value:
-                        if parsed_packet.inner_frame:
-                            if parsed_packet.inner_frame.command_type == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
-                                self._on_data_update(parsed_packet.inner_frame.data)
+                        if parsed_packet.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
+                            self._on_data_update(parsed_packet.data)
 
                 data = data[packet_length + 5:]
 
@@ -113,12 +127,51 @@ class CommandClient:
 
     async def update_mesh_devices(self):
         """Get new device state."""
-        hub_device = [device for device in self._devices if device.is_online and isinstance(device, CyncLight)][0]
-        print(f"Updating device states with device ID {hub_device.device_id}")
+        hub_device = self._fetch_hub_device()
 
         device_id = hub_device.device_id
         state_request_packet = PacketBuilder.build_state_query_request_packet(device_id)
         self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
+
+    async def set_device_power_state(self, device, is_on: bool):
+        hub_device = self._fetch_hub_device()
+
+        request_packet = PacketBuilder.build_power_state_request_packet(hub_device.device_id, device.isolated_mesh_id, is_on)
+        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+
+    async def set_device_brightness(self, device, brightness: int):
+        if brightness < 0 or brightness > 100:
+            raise CyncError()
+
+        hub_device = self._fetch_hub_device()
+
+        request_packet = PacketBuilder.build_brightness_request_packet(hub_device.device_id, device.isolated_mesh_id, brightness)
+        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+
+    async def set_device_color_temp(self, device, color_temp):
+        if color_temp < 1 or color_temp > 100:
+            raise CyncError()
+
+        hub_device = self._fetch_hub_device()
+
+        request_packet = PacketBuilder.build_color_temp_request_packet(hub_device.device_id, device.isolated_mesh_id, color_temp)
+        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+
+    async def set_device_rgb(self, device, rgb: tuple[int, int, int]):
+        if rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255:
+            raise CyncError()
+
+        hub_device = self._fetch_hub_device()
+
+        request_packet = PacketBuilder.build_rgb_request_packet(hub_device.device_id, device.isolated_mesh_id, rgb)
+        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+
+    def _fetch_hub_device(self):
+        hub_device = next((device for device in self._devices if device.wifi_connected and isinstance(device, CyncLight)), None)
+        if hub_device is None:
+            raise NoHubConnectedError()
+
+        return hub_device
 
     def _send_request(self, request):
         async def send():

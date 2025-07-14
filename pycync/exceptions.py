@@ -1,5 +1,3 @@
-from aiohttp import ClientResponseError
-
 class CyncError(Exception):
     """Cync error."""
 
@@ -8,6 +6,9 @@ class TwoFactorRequiredError(CyncError):
 
 class AuthFailedError(CyncError):
     """Auth failed."""
+
+class NoHubConnectedError(CyncError):
+    """No hub device is connected to Wi-Fi."""
 
 class MissingAuthError(Exception):
     """Missing auth error."""

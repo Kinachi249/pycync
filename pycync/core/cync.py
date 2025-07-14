@@ -42,7 +42,7 @@ class Cync:
                 mesh_devices = mesh_device_info["bulbsArray"]
                 for mesh_device in mesh_devices:
                     matching_device = next(device for device in device_info if device["id"] == mesh_device["switchID"])
-                    created_device = create_device(matching_device, mesh_device, home["id"])
+                    created_device = create_device(matching_device, mesh_device, home["id"], self)
 
                     await self._auth.async_login_device(created_device)
                     devices.append(created_device)
@@ -50,6 +50,18 @@ class Cync:
         # Provide online devices first, so that later offline devices will be able
         # to check the online devices for their mesh state.
         return sorted(devices, key=lambda device: device.is_online, reverse=True)
+
+    async def set_device_power_state(self, device: CyncDevice, is_on: bool):
+        await self._command_client.set_device_power_state(device, is_on)
+
+    async def set_device_brightness(self, device: CyncDevice, brightness: int):
+        await self._command_client.set_device_brightness(device, brightness)
+
+    async def set_device_color_temp(self, device: CyncDevice, color_temp: int):
+        await self._command_client.set_device_color_temp(device, color_temp)
+
+    async def set_device_rgb(self, device: CyncDevice, rgb: tuple[int, int, int]):
+        await self._command_client.set_device_rgb(device, rgb)
 
     async def update_device_datapoints(self, device: CyncDevice):
         datapoints = await self._auth.send_device_request(device,f"{REST_API_BASE_URL}/v2/product/{device.product_id}/datapoints")
