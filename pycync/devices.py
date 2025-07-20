@@ -37,6 +37,7 @@ class CyncDevice:
         self.on_update = None
         self.datapoints = device_datapoint_data
         self._cync = cync
+        self.capabilities = DEVICE_CAPABILITIES.get(self.device_type, {})
 
     def set_wifi_connected(self, wifi_connected):
         self.wifi_connected = wifi_connected
@@ -52,7 +53,6 @@ class CyncLight(CyncDevice):
     def __init__(self, device_info, mesh_device_info, home_id, cync, wifi_connected, device_datapoint_data):
         super().__init__(device_info, mesh_device_info, home_id, cync, wifi_connected, device_datapoint_data)
 
-        self.capabilities = DEVICE_CAPABILITIES.get(self.device_type, [])
         self.is_on = False
         self.brightness = 0
         self.color_temp = 0

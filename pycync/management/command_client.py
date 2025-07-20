@@ -108,7 +108,6 @@ class CommandClient:
                         device = next(device for device in self._devices if device.device_id == parsed_packet.device_id)
                         device.set_wifi_connected(True)
                     case MessageType.SYNC.value:
-                        print(parsed_packet.data)
                         self._on_data_update(parsed_packet.data)
                     case MessageType.PIPE.value:
                         if parsed_packet.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:

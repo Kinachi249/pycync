@@ -150,7 +150,7 @@ class PacketParser:
 def _decode_7e_usages(frame_bytes: bytearray) -> bytearray:
     """
     When sending inner frames, the byte 7e is encoded as 0x7d5e if it's within the data,
-    so it isn't mistaken for a frame delimiter.
+    so it isn't mistaken for a frame boundary marker.
     We need to undo that when reading it.
     """
     return frame_bytes.replace(b"\x7d\x5e", b"\x7e")

@@ -141,18 +141,6 @@ class Auth:
         except Exception as ex:
             raise AuthFailedError(ex)
 
-    async def async_login_device(self, device: CyncDevice):
-        """Docs"""
-        login_body = {
-            "product_id": device.product_id,
-            "mac": device.mac,
-            "authorize_code": device.authorize_code
-        }
-        device_credentials = await self.send_device_request(device, f"{REST_API_BASE_URL}/v2/device_login", "POST",
-                                                            login_body)
-
-        self._device_credentials[device.device_id] = device_credentials
-
     async def send_user_request(
         self,
         url: str,
@@ -198,72 +186,6 @@ class Auth:
             if resp.status == 401 or resp.status == 403:
                 await self.async_refresh_user_token()
                 headers["Access-Token"] = self.user.access_token
-
-                if json:
-                    body = dumps(json)
-
-                    resp = await self.session.request(method, url, headers=headers, data=body)
-                else:
-                    resp = await self.session.request(method, url, headers=headers)
-
-            if raise_for_status:
-                try:
-                    resp.raise_for_status()
-                except ClientResponseError as ex:
-                    msg = (
-                        f"HTTP error with status code {resp.status} "
-                        f"during query of url {url}: {ex}"
-                    )
-                    raise Exception(msg) from ex
-
-            return await resp.json()
-
-    async def send_device_request(
-        self,
-        device: CyncDevice,
-        url: str,
-        method: str = "GET",
-        json: dict[Any, Any] | None = None,
-        raise_for_status: bool = True,
-    ) -> dict:
-        """some stuff"""
-        headers = {"User-Agent": self.user_agent}
-        if device.device_id in self._device_credentials:
-            headers["Access-Token"] = self._device_credentials[device.device_id]["access_token"]
-
-        try:
-            try:
-                if json:
-                    body = dumps(json)
-
-                    resp = await self.session.request(method, url, headers=headers, data=body)
-                else:
-                    resp = await self.session.request(method, url, headers=headers)
-            except Exception:
-                await self.async_login_device(device)
-                headers["Access-Token"] = self._device_credentials[device.device_id]["access_token"]
-
-                if json:
-                    body = dumps(json)
-
-                    resp = await self.session.request(method, url, headers=headers, data=body)
-                else:
-                    resp = await self.session.request(method, url, headers=headers)
-
-        except TimeoutError as ex:
-            msg = f"Timeout error during query of url {url}: {ex}"
-            raise Exception(msg) from ex
-        except Exception as ex:
-            msg = f"Unknown error during query of url {url}: {ex}"
-            raise Exception(msg) from ex
-
-        async with resp:
-            if resp.status == 400:
-                raise BadRequestError("Bad Request")
-
-            if resp.status == 401 or resp.status == 403:
-                await self.async_login_device(device)
-                headers["Access-Token"] = self._device_credentials[device.device_id]["access_token"]
 
                 if json:
                     body = dumps(json)
