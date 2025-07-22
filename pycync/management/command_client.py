@@ -1,32 +1,41 @@
+"""
+The proverbial "beating heart" of the Cync client.
+This TCP client will retain an open connection the same way that the Cync app does.
+It listens for device state changes and updates them accordingly, and also handles sending all device action commands.
+"""
+
 import asyncio
 import logging
 import ssl
 import struct
 import threading
-from typing import Any, Callable
 
 from pycync import CyncDevice, User
-from pycync.devices import CyncLight
+from pycync.core.devices import CyncLight
 
-from .packet_parser import PacketParser
-from pycync.management import packet_builder as PacketBuilder
-from .const import MessageType, PipeCommandCode
+from . import packet_parser
+from pycync.management import packet_builder
+from .tcp_constants import MessageType, PipeCommandCode
+from ..const import TCP_API_HOSTNAME, TCP_API_TLS_PORT, TCP_API_UNSECURED_PORT
 from ..exceptions import NoHubConnectedError, CyncError
+from pycync.management import device_storage
+from pycync.core.groups import CyncHome
 
 
 class CommandClient:
     _LOGGER = logging.getLogger(__name__)
 
-    def __init__(self, devices: list[CyncDevice], user: User, on_data_update: Callable[[dict[str, Any]], None]):
-        self._devices = devices
+    def __init__(self, user: User):
         self._user = user
-        self._on_data_update = on_data_update
-        self._packet_parser = PacketParser(self._devices)
 
         self._client_closed = False
+        self._login_acknowledged = False
+        self._probe_completed = False
         self._loop = None
         self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True)
         self._client_thread.start()
+        self.reader = None
+        self.writer = None
 
     def _open_thread_connection(self):
         self._loop = asyncio.new_event_loop()
@@ -38,21 +47,19 @@ class CommandClient:
             try:
                 context = ssl.create_default_context()
                 try:
-                    self.reader, self.writer = await asyncio.open_connection('cm.gelighting.com', 23779, ssl=context)
+                    self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_TLS_PORT, ssl=context)
                 except Exception as e:
                     context.check_hostname = False
                     context.verify_mode = ssl.CERT_NONE
                     try:
-                        self.reader, self.writer = await asyncio.open_connection('cm.gelighting.com', 23779,
-                                                                                 ssl=context)
+                        self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_TLS_PORT, ssl=context)
                     except Exception as e:
-                        self.reader, self.writer = await asyncio.open_connection('cm.gelighting.com', 23778)
+                        self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_UNSECURED_PORT)
             except Exception as e:
                 self._LOGGER.error(e)
                 await asyncio.sleep(5)
             else:
                 await self._log_in()
-                await self._probe_devices()
 
                 read_tcp_messages = asyncio.create_task(self._read_packets(), name="Read TCP Messages")
                 maintain_connection = asyncio.create_task(self._send_pings(), name="Maintain Connection")
@@ -64,6 +71,8 @@ class CommandClient:
                         exception = task.exception()
                         try:
                             result = task.result()
+                        except ShuttingDown:
+                            self._LOGGER.info("Cync client shutting down")
                         except Exception as e:
                             self._LOGGER.error(e)
                     for task in pending:
@@ -71,47 +80,55 @@ class CommandClient:
                     if not self._client_closed:
                         self._LOGGER.info("Connection to Cync server reset, restarting in 15 seconds")
                         await asyncio.sleep(15)
-                    else:
-                        self._LOGGER.info("Cync client shutting down")
+
                 except Exception as e:
                     self._LOGGER.error(e)
 
     async def _log_in(self):
-        login_request_packet = PacketBuilder.build_login_request_packet(self._user.authorize, self._user.user_id)
+        login_request_packet = packet_builder.build_login_request_packet(self._user.authorize, self._user.user_id)
         self.writer.write(login_request_packet)
         await self.writer.drain()
 
     async def _probe_devices(self):
-        for device in self._devices:
-            probe_device_packet = PacketBuilder.build_probe_request_packet(device.device_id)
+        for device in device_storage.get_flattened_devices(self._user.user_id):
+            probe_device_packet = packet_builder.build_probe_request_packet(device.device_id)
             self.writer.write(probe_device_packet)
             await self.writer.drain()
 
     async def _read_packets(self):
         while not self._client_closed:
             data = await self.reader.read(1500)
-            if len(data) == 0:
-                self.logged_in = False
-                raise ConnectionClosedError
             while data:
                 packet_length = struct.unpack(">I", data[1:5])[0]
                 packet = data[:packet_length + 5]
                 try:
-                    parsed_packet = self._packet_parser.parse_packet(packet)
+                    parsed_packet = packet_parser.parse_packet(packet, self._user.user_id)
                 except NotImplementedError:
                     # Simply ignore the packet for now
                     data = data[packet_length + 5:]
                     continue
 
                 match parsed_packet.message_type:
+                    case MessageType.LOGIN.value:
+                        self._login_acknowledged = True
+                        await self._probe_devices()
                     case MessageType.PROBE.value if parsed_packet.version != 0:
-                        device = next(device for device in self._devices if device.device_id == parsed_packet.device_id)
+                        devices_in_home = device_storage.get_associated_home_devices(self._user.user_id, parsed_packet.device_id)
+                        device = next(device for device in devices_in_home if device.device_id == parsed_packet.device_id)
                         device.set_wifi_connected(True)
+                        self._probe_completed = True
                     case MessageType.SYNC.value:
-                        self._on_data_update(parsed_packet.data)
+                        callback = device_storage.get_user_device_callback(self._user.user_id)
+                        if callback is not None:
+                            callback(parsed_packet.data)
                     case MessageType.PIPE.value:
                         if parsed_packet.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
-                            self._on_data_update(parsed_packet.data)
+                            callback = device_storage.get_user_device_callback(self._user.user_id)
+                            if callback is not None:
+                                callback(parsed_packet.data)
+                    case MessageType.DISCONNECT.value:
+                        self._login_acknowledged = False
+                        raise ConnectionClosedError
 
                 data = data[packet_length + 5:]
 
@@ -124,51 +141,65 @@ class CommandClient:
             await self.writer.drain()
         raise ShuttingDown
 
+    async def shut_down(self):
+        self._client_closed = True
+        self.writer.write(bytes.fromhex('e30000000103'))
+        await self.writer.drain()
+
     async def update_mesh_devices(self):
         """Get new device state."""
-        hub_device = self._fetch_hub_device()
+        homes_for_user = device_storage.get_user_homes(self._user.user_id)
 
-        device_id = hub_device.device_id
-        state_request_packet = PacketBuilder.build_state_query_request_packet(device_id)
-        self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
+        for home in homes_for_user:
+            hub_device = await self._fetch_hub_device(home)
+            state_request_packet = packet_builder.build_state_query_request_packet(hub_device.device_id)
+            self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
 
-    async def set_device_power_state(self, device, is_on: bool):
-        hub_device = self._fetch_hub_device()
+    async def set_device_power_state(self, device: CyncDevice, is_on: bool):
+        device_home = device_storage.get_associated_home(self._user.user_id, device.device_id)
+        hub_device = await self._fetch_hub_device(device_home)
 
-        request_packet = PacketBuilder.build_power_state_request_packet(hub_device.device_id, device.isolated_mesh_id, is_on)
+        request_packet = packet_builder.build_power_state_request_packet(hub_device.device_id, device.isolated_mesh_id, is_on)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    async def set_device_brightness(self, device, brightness: int):
+    async def set_device_brightness(self, device: CyncDevice, brightness: int):
         if brightness < 0 or brightness > 100:
             raise CyncError()
 
-        hub_device = self._fetch_hub_device()
+        device_home = device_storage.get_associated_home(self._user.user_id, device.device_id)
+        hub_device = await self._fetch_hub_device(device_home)
 
-        request_packet = PacketBuilder.build_brightness_request_packet(hub_device.device_id, device.isolated_mesh_id, brightness)
+        request_packet = packet_builder.build_brightness_request_packet(hub_device.device_id, device.isolated_mesh_id, brightness)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    async def set_device_color_temp(self, device, color_temp):
+    async def set_device_color_temp(self, device: CyncDevice, color_temp):
         if color_temp < 1 or color_temp > 100:
             raise CyncError()
 
-        hub_device = self._fetch_hub_device()
+        device_home = device_storage.get_associated_home(self._user.user_id, device.device_id)
+        hub_device = await self._fetch_hub_device(device_home)
 
-        request_packet = PacketBuilder.build_color_temp_request_packet(hub_device.device_id, device.isolated_mesh_id, color_temp)
+        request_packet = packet_builder.build_color_temp_request_packet(hub_device.device_id, device.isolated_mesh_id, color_temp)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    async def set_device_rgb(self, device, rgb: tuple[int, int, int]):
+    async def set_device_rgb(self, device: CyncDevice, rgb: tuple[int, int, int]):
         if rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255:
             raise CyncError()
 
-        hub_device = self._fetch_hub_device()
+        device_home = device_storage.get_associated_home(self._user.user_id, device.device_id)
+        hub_device = await self._fetch_hub_device(device_home)
 
-        request_packet = PacketBuilder.build_rgb_request_packet(hub_device.device_id, device.isolated_mesh_id, rgb)
+        request_packet = packet_builder.build_rgb_request_packet(hub_device.device_id, device.isolated_mesh_id, rgb)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    def _fetch_hub_device(self):
-        hub_device = next((device for device in self._devices if device.wifi_connected and isinstance(device, CyncLight)), None)
+    async def _fetch_hub_device(self, home: CyncHome):
+        while not self._probe_completed:
+            await asyncio.sleep(1)
+            self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
+
+        hub_device = next((device for device in home.get_flattened_device_list() if device.wifi_connected and isinstance(device, CyncLight)), None)
         if hub_device is None:
-            raise NoHubConnectedError()
+            raise NoHubConnectedError
 
         return hub_device
 
@@ -177,6 +208,9 @@ class CommandClient:
             self.writer.write(request)
             await self.writer.drain()
 
+        while not self._login_acknowledged:
+            asyncio.sleep(1)
+            self._LOGGER.debug("Awaiting login acknowledge before sending request.")
         self._loop.create_task(send())
 
 class ConnectionClosedError(Exception):

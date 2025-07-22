@@ -4,18 +4,22 @@ from pycync.exceptions import UnsupportedCapabilityError
 from pycync.mappings.capabilities import DEVICE_CAPABILITIES, CyncCapability
 from pycync.mappings.device_types import DEVICE_TYPES, DeviceType
 
-_mesh_lights: list[CyncLight] = []
-
 def create_device(device_info, mesh_device_info, home_id, cync, wifi_connected = False, device_datapoint_data = None) -> CyncDevice:
     device_type_id = mesh_device_info["deviceType"]
 
     device_type = DEVICE_TYPES.get(device_type_id, DeviceType.UNKNOWN)
 
     match device_type:
-        case DeviceType.LIGHT | DeviceType.INDOOR_LIGHT_STRIP | DeviceType.OUTDOOR_LIGHT_STRIP:
-            cync_light = CyncLight(device_info, mesh_device_info, home_id, cync, wifi_connected, device_datapoint_data)
-            _mesh_lights.append(cync_light)
-            return cync_light
+        case (DeviceType.LIGHT |
+              DeviceType.INDOOR_LIGHT_STRIP |
+              DeviceType.OUTDOOR_LIGHT_STRIP |
+              DeviceType.NEON_LIGHT_STRIP |
+              DeviceType.OUTDOOR_NEON_LIGHT_STRIP |
+              DeviceType.CAFE_STRING_LIGHTS |
+              DeviceType.DOWNLIGHT |
+              DeviceType.UNDERCABINET_FIXTURES |
+              DeviceType.LIGHT_TILE):
+            return CyncLight(device_info, mesh_device_info, home_id, cync, wifi_connected, device_datapoint_data)
         case _:
             return CyncDevice(device_info, mesh_device_info, home_id, cync, wifi_connected, device_datapoint_data)
 

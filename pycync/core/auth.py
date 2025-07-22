@@ -1,57 +1,12 @@
 from asyncio import TimeoutError
 from json import dumps
 from typing import Any
-import time
 
 from aiohttp import ClientSession, ClientResponseError
 
-from pycync import CyncDevice
 from pycync.const import GE_CORP_ID, REST_API_BASE_URL
+from pycync.core.user import User
 from pycync.exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError
-
-
-class User:
-    """Docs."""
-
-    def __init__(self, access_token: str, refresh_token: str, authorize: str, user_id: int, expire_in: int = None, expires_at: float = None):
-        """Initialize the User object."""
-        self._access_token = access_token
-        self._refresh_token = refresh_token
-        self._expire_in = expire_in
-        self._authorize = authorize
-        self._user_id = user_id
-        self._expires_at = time.time() + expire_in if not expires_at else expires_at
-
-    @property
-    def access_token(self) -> str:
-        """Return the user's access token."""
-        return self._access_token
-
-    @property
-    def refresh_token(self) -> str:
-        """Return the ID of the light."""
-        return self._refresh_token
-
-    @property
-    def expire_in(self) -> int:
-        """Return the ID of the light."""
-        return self._expire_in
-
-    @property
-    def expires_at(self) -> float:
-        """Return the ID of the light."""
-        return self._expires_at
-
-    @property
-    def authorize(self) -> str:
-        """Return the ID of the light."""
-        return self._authorize
-
-    @property
-    def user_id(self) -> int:
-        """Return the ID of the light."""
-        return self._user_id
-
 
 class Auth:
     def __init__(self, session: ClientSession, user_agent: str, user: User = None, username: str = None, password: str = None) -> None:
@@ -83,7 +38,7 @@ class Auth:
     def password(self):
         return self._password
 
-    async def login_user(self, two_factor_code: str = None) -> User:
+    async def login(self, two_factor_code: str = None) -> User:
         if two_factor_code is None:
             try:
                 user_info = await self.async_auth_user()
@@ -123,7 +78,7 @@ class Auth:
         except Exception as ex:
             raise AuthFailedError(ex)
 
-    async def async_refresh_user_token(self):
+    async def _async_refresh_user_token(self):
         """Docs"""
         refresh_request = {'refresh_token': self._user.refresh_token}
 
@@ -162,7 +117,7 @@ class Auth:
                 else:
                     resp = await self.session.request(method, url, headers=headers)
             except Exception:
-                await self.async_refresh_user_token()
+                await self._async_refresh_user_token()
                 headers["Access-Token"] = self.user.access_token
 
                 if json:
@@ -184,7 +139,7 @@ class Auth:
                 raise BadRequestError("Bad Request")
 
             if resp.status == 401 or resp.status == 403:
-                await self.async_refresh_user_token()
+                await self._async_refresh_user_token()
                 headers["Access-Token"] = self.user.access_token
 
                 if json:

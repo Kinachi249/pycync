@@ -1,6 +1,6 @@
 import threading
 
-from .const import MessageType, PROTOCOL_VERSION, PIPE_PACKET_REQUEST
+from .tcp_constants import MessageType, PROTOCOL_VERSION, PIPE_PACKET_REQUEST
 from .builder_utils import generate_zero_bytes
 from .pipe_packet_builder import build_query_device_pipe_packet, build_power_state_pipe_packet, \
     build_color_temp_pipe_packet, build_brightness_pipe_packet, build_rgb_pipe_packet

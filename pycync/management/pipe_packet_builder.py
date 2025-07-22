@@ -2,7 +2,7 @@ import threading
 from functools import reduce
 
 from .builder_utils import generate_zero_bytes
-from .const import PipeCommandCode
+from .tcp_constants import PipeCommandCode
 
 _PIPE_PACKET_DELIMITER = bytearray.fromhex("7e")
 
