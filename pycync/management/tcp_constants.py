@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class MessageType(Enum):
     LOGIN = 1
     HANDSHAKE = 2

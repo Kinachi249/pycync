@@ -4,22 +4,26 @@ This TCP client will retain an open connection the same way that the Cync app do
 It listens for device state changes and updates them accordingly, and also handles sending all device action commands.
 """
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import asyncio
 import logging
 import ssl
 import struct
 import threading
 
-from pycync import CyncDevice, User
-from pycync.core.devices import CyncLight
-
 from . import packet_parser
-from pycync.management import packet_builder
 from .tcp_constants import MessageType, PipeCommandCode
 from ..const import TCP_API_HOSTNAME, TCP_API_TLS_PORT, TCP_API_UNSECURED_PORT
 from ..exceptions import NoHubConnectedError, CyncError
-from pycync.management import device_storage
-from pycync.core.groups import CyncHome
+from ..management import device_storage, packet_builder
+from ..mappings.capabilities import CyncCapability
+from ..user import User
+
+if TYPE_CHECKING:
+    from ..devices import CyncDevice
+    from ..groups import CyncHome
 
 
 class CommandClient:
@@ -32,10 +36,13 @@ class CommandClient:
         self._login_acknowledged = False
         self._probe_completed = False
         self._loop = None
-        self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True)
-        self._client_thread.start()
+        self._client_thread = None
         self.reader = None
         self.writer = None
+
+    def start_connection(self):
+        self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True)
+        self._client_thread.start()
 
     def _open_thread_connection(self):
         self._loop = asyncio.new_event_loop()
@@ -67,8 +74,6 @@ class CommandClient:
                 try:
                     done, pending = await asyncio.wait(read_write_tasks, return_when=asyncio.FIRST_EXCEPTION)
                     for task in done:
-                        name = task.get_name()
-                        exception = task.exception()
                         try:
                             result = task.result()
                         except ShuttingDown:
@@ -156,6 +161,7 @@ class CommandClient:
             self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
 
     async def set_device_power_state(self, device: CyncDevice, is_on: bool):
+        """Set a device to either on or off."""
         device_home = device_storage.get_associated_home(self._user.user_id, device.device_id)
         hub_device = await self._fetch_hub_device(device_home)
 
@@ -163,6 +169,7 @@ class CommandClient:
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
     async def set_device_brightness(self, device: CyncDevice, brightness: int):
+        """Sets the brightness of a device. Must be between 0 and 100 inclusive."""
         if brightness < 0 or brightness > 100:
             raise CyncError()
 
@@ -172,7 +179,11 @@ class CommandClient:
         request_packet = packet_builder.build_brightness_request_packet(hub_device.device_id, device.isolated_mesh_id, brightness)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    async def set_device_color_temp(self, device: CyncDevice, color_temp):
+    async def set_device_color_temp(self, device: CyncDevice, color_temp: int):
+        """
+        Sets the color temperature of a device. Must be between 1 and 100 inclusive.
+        1 represents the most "blue" and 100 represents the most "orange".
+        """
         if color_temp < 1 or color_temp > 100:
             raise CyncError()
 
@@ -183,6 +194,7 @@ class CommandClient:
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
     async def set_device_rgb(self, device: CyncDevice, rgb: tuple[int, int, int]):
+        """Sets the RGB color of a device. Each color must be between 0 and 255 inclusive."""
         if rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255:
             raise CyncError()
 
@@ -192,12 +204,12 @@ class CommandClient:
         request_packet = packet_builder.build_rgb_request_packet(hub_device.device_id, device.isolated_mesh_id, rgb)
         self._loop.call_soon_threadsafe(self._send_request, request_packet)
 
-    async def _fetch_hub_device(self, home: CyncHome):
+    async def _fetch_hub_device(self, home: CyncHome) -> CyncDevice:
         while not self._probe_completed:
             await asyncio.sleep(1)
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
 
-        hub_device = next((device for device in home.get_flattened_device_list() if device.wifi_connected and isinstance(device, CyncLight)), None)
+        hub_device = next((device for device in home.get_flattened_device_list() if device.wifi_connected and CyncCapability.SIG_MESH in device.capabilities), None)
         if hub_device is None:
             raise NoHubConnectedError
 

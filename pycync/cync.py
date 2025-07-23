@@ -1,23 +1,30 @@
+"""
+The main API interface for the Cync library.
+Each instance of this class corresponds to one user, and all devices/homes associated with that user.
+"""
+
 import asyncio
 from typing import Callable
 
-from pycync import Auth
-from pycync.core.devices import create_device, CyncDevice
-from pycync.exceptions import MissingAuthError
-from pycync.const import REST_API_BASE_URL
-from pycync.core.groups import CyncRoom, CyncGroup, CyncHome
-from pycync.management.command_client import CommandClient
-from pycync.management import device_storage
+from .auth import Auth
+from .devices import create_device, CyncDevice
+from .exceptions import MissingAuthError
+from .const import REST_API_BASE_URL
+from .groups import CyncRoom, CyncGroup, CyncHome
+from .management.command_client import CommandClient
+from .management import device_storage
 
 
 class Cync:
-    """Docs."""
     def __init__(self, auth: Auth):
-        """Initialize the Cync object."""
+        """
+        Initialize a Cync object.
+        The static create function should be used to create a new Cync object.
+        """
         if not auth.user:
             raise MissingAuthError("No logged in user exists on auth object.")
         self._auth = auth
-        self._command_client = None
+        self._command_client = CommandClient(auth.user)
 
     @classmethod
     async def create(cls, auth: Auth):
@@ -34,14 +41,18 @@ class Cync:
         return self._auth.user
 
     def set_update_callback(self, update_callback: Callable):
+        """
+        Set the callback function that will be called when a device's state changes,
+        or when a poll request for device state receives a response.
+        """
         device_storage.set_user_device_callback(self._auth.user.user_id, update_callback)
 
     def update_device_states(self):
-        """Update device states."""
+        """Query the server for current device states, and update the devices."""
         asyncio.create_task(self._command_client.update_mesh_devices())
 
     def get_devices(self):
-        """Get list of devices."""
+        """Get a flat list of devices associated with this user."""
         return device_storage.get_flattened_devices(self._auth.user.user_id)
 
     def get_homes(self):
@@ -49,8 +60,8 @@ class Cync:
         return device_storage.get_user_homes(self._auth.user.user_id)
 
     async def refresh_home_info(self):
-        """Refresh home info."""
-        device_info = await self._auth.send_user_request(
+        """Refresh all nested home information for this account, and update the device storage.."""
+        device_info = await self._auth._send_user_request(
             f"{REST_API_BASE_URL}/v2/user/{self._auth.user.user_id}/subscribe/devices")
         home_entries = [device for device in device_info if device["source"] == 5]
         homes = []
@@ -60,13 +71,13 @@ class Cync:
             rooms: list[CyncRoom] = []
             groups: list[CyncGroup] = []
 
-            mesh_device_info = await self._auth.send_user_request(
+            mesh_device_info = await self._auth._send_user_request(
                 f"{REST_API_BASE_URL}/v2/product/{home["product_id"]}/device/{home["id"]}/property")
             if "bulbsArray" in mesh_device_info:
                 mesh_devices = mesh_device_info["bulbsArray"]
                 for mesh_device in mesh_devices:
                     matching_device = next(device for device in device_info if device["id"] == mesh_device["switchID"])
-                    created_device = create_device(matching_device, mesh_device, home["id"], self)
+                    created_device = create_device(matching_device, mesh_device, home["id"], self._command_client)
 
                     home_devices.append(created_device)
 
@@ -93,19 +104,9 @@ class Cync:
         device_storage.set_user_homes(self._auth.user.user_id, homes)
 
     async def shut_down(self):
+        """Shut down the command client instance and close its associated connections."""
         await self._command_client.shut_down()
 
-    async def set_device_power_state(self, device: CyncDevice, is_on: bool):
-        await self._command_client.set_device_power_state(device, is_on)
-
-    async def set_device_brightness(self, device: CyncDevice, brightness: int):
-        await self._command_client.set_device_brightness(device, brightness)
-
-    async def set_device_color_temp(self, device: CyncDevice, color_temp: int):
-        await self._command_client.set_device_color_temp(device, color_temp)
-
-    async def set_device_rgb(self, device: CyncDevice, rgb: tuple[int, int, int]):
-        await self._command_client.set_device_rgb(device, rgb)
-
     def _start_command_client(self):
-        self._command_client = CommandClient(self._auth.user)
+        """Start up the command client."""
+        self._command_client.start_connection()

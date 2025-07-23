@@ -1,8 +1,9 @@
 import struct
+
+from . import device_storage
+from .builder_utils import generate_checksum
 from .tcp_constants import MessageType, PipeCommandCode
 from ..mappings.capabilities import DEVICE_CAPABILITIES, CyncCapability
-from . import device_storage
-
 
 class ParsedMessage:
     def __init__(self, message_type, is_response, device_id, data, version, command_code = None):
@@ -109,8 +110,10 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
 
     command_code = frame_bytes[1]
     data_length = struct.unpack("<H", frame_bytes[2:4])[0]
-    checksum = frame_bytes[-1]
-    # TODO verify checksum
+
+    frame_checksum = frame_bytes[-1]
+    if not _verify_checksum(frame_bytes[1:-1], frame_checksum):
+        raise ValueError("Invalid checksum for inner packet frame")
 
     match command_code:
         case PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
@@ -153,8 +156,12 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
 def _decode_7e_usages(frame_bytes: bytearray) -> bytearray:
     """
-    When sending inner frames, the byte 7e is encoded as 0x7d5e if it's within the data,
+    When sending inner frames, the byte 0x7e is encoded as 0x7d5e if it's within the inner frame,
     so it isn't mistaken for a frame boundary marker.
     We need to undo that when reading it.
     """
     return frame_bytes.replace(b"\x7d\x5e", b"\x7e")
+
+def _verify_checksum(data_bytes: bytearray, expected_checksum: int) -> bool:
+    checksum_result = generate_checksum(data_bytes)
+    return checksum_result == expected_checksum

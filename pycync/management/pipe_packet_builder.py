@@ -1,7 +1,6 @@
 import threading
-from functools import reduce
 
-from .builder_utils import generate_zero_bytes
+from .builder_utils import generate_zero_bytes, generate_checksum
 from .tcp_constants import PipeCommandCode
 
 _PIPE_PACKET_DELIMITER = bytearray.fromhex("7e")
@@ -102,7 +101,7 @@ def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_cod
     packet_command_arguments_length = len(command_bytes).to_bytes(2, "little")
 
     packet_command_body = command_code_bytes + packet_command_arguments_length + command_bytes
-    checksum = _generate_checksum(packet_command_body)
+    checksum = generate_checksum(packet_command_body).to_bytes(1, "little")
 
     return (_PIPE_PACKET_DELIMITER +
             sequence_bytes +
@@ -118,9 +117,6 @@ def _requires_second_sequence_inserted(pipe_command):
         PipeCommandCode.SET_BRIGHTNESS.value,
         PipeCommandCode.COMBO_CONTROL.value
     ]
-
-def _generate_checksum(byte_array):
-    return reduce(lambda acc, byte: (acc + byte) % 256, byte_array).to_bytes(1, "little")
 
 def _get_and_increment_sequence_bytes():
     with _pipe_packet_counter_lock:

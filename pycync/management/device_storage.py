@@ -1,9 +1,10 @@
 from __future__ import annotations
+from typing import Callable, Any, TYPE_CHECKING
 
-from typing import Callable
+from ..exceptions import CyncError
 
-from pycync.core.groups import CyncHome
-
+if TYPE_CHECKING:
+    from ..groups import CyncHome
 
 _user_homes: dict[int, UserHomes] = {}
 
@@ -30,7 +31,10 @@ def set_user_device_callback(user_id: int, callback: Callable):
 def get_associated_home(user_id: int, device_id: int):
     user_homes = _user_homes.get(user_id, UserHomes([])).homes
 
-    return next((home for home in user_homes if home.contains_device_id(device_id)), None)
+    found_home = next((home for home in user_homes if home.contains_device_id(device_id)), None)
+    if found_home is None:
+        raise CyncError(f"Device ID {device_id} not found on user account {user_id}.")
+    return found_home
 
 def get_associated_home_devices(user_id: int, device_id: int):
     user_homes = _user_homes.get(user_id, UserHomes([])).homes
@@ -47,6 +51,10 @@ def get_flattened_devices(user_id: int):
     return all_devices
 
 class UserHomes:
+    """
+    A summary of all homes associated with a user, and an optional callback function
+    to call when any of the home's devices are updated.
+    """
     def __init__(self, homes: list[CyncHome], on_data_update: Callable[[dict[str, Any]], None] = None):
         self.homes = homes
         self.on_data_update = on_data_update
