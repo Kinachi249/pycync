@@ -13,10 +13,9 @@ from .user import User
 from .exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError
 
 class Auth:
-    def __init__(self, session: ClientSession, user_agent: str, user: User = None, username: str = None, password: str = None) -> None:
+    def __init__(self, session: ClientSession, user: User = None, username: str = None, password: str = None) -> None:
         """Initialize the auth."""
         self._session = session
-        self._user_agent = user_agent
         self._user = user
         self._username = username
         self._password = password
@@ -29,10 +28,6 @@ class Auth:
     @property
     def session(self):
         return self._session
-
-    @property
-    def user_agent(self):
-        return self._user_agent
 
     @property
     def username(self):
@@ -119,7 +114,7 @@ class Auth:
         raise_for_status: bool = True,
     ) -> dict:
         """Send an HTTP request with the provided parameters."""
-        headers = {"User-Agent": self.user_agent}
+        headers = {}
         if self.user:
             headers["Access-Token"] = self.user.access_token
 
