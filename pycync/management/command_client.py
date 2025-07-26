@@ -15,7 +15,7 @@ import threading
 
 from . import packet_parser
 from .tcp_constants import MessageType, PipeCommandCode
-from ..const import TCP_API_HOSTNAME, TCP_API_TLS_PORT, TCP_API_UNSECURED_PORT
+from ..const import TCP_API_HOSTNAME, TCP_API_TLS_PORT
 from ..exceptions import NoHubConnectedError, CyncError
 from ..management import device_storage, packet_builder
 from ..mappings.capabilities import CyncCapability
@@ -56,21 +56,23 @@ class CommandClient:
                 try:
                     self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_TLS_PORT, ssl=context)
                 except Exception as e:
+                    # Normally this isn't something you'd want to do.
+                    # However, Cync's server has a 2+ year expired certificate and the common name doesn't match.
+                    # Why they haven't renewed/fixed it, and why their devices allow this, who knows...
+                    self._LOGGER.debug("Could not connect to TCP server with strict TLS. Using relaxed TLS.")
+
                     context.check_hostname = False
                     context.verify_mode = ssl.CERT_NONE
-                    try:
-                        self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_TLS_PORT, ssl=context)
-                    except Exception as e:
-                        self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_UNSECURED_PORT)
+                    self.reader, self.writer = await asyncio.open_connection(TCP_API_HOSTNAME, TCP_API_TLS_PORT, ssl=context)
             except Exception as e:
-                self._LOGGER.error(e)
+                self._LOGGER.error("Failed to connect to Cync server. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
             else:
                 await self._log_in()
 
                 read_tcp_messages = asyncio.create_task(self._read_packets(), name="Read TCP Messages")
-                maintain_connection = asyncio.create_task(self._send_pings(), name="Maintain Connection")
-                read_write_tasks = [read_tcp_messages, maintain_connection]
+                heartbeat_task = asyncio.create_task(self._send_pings(), name="Send Heartbeats")
+                read_write_tasks = [read_tcp_messages, heartbeat_task]
                 try:
                     done, pending = await asyncio.wait(read_write_tasks, return_when=asyncio.FIRST_EXCEPTION)
                     for task in done:

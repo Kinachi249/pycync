@@ -76,6 +76,12 @@ def my_callback(update_data: dict[int, dict[str, Any]]):
 cync_api.set_update_callback(my_callback)
 ```
 
+## Other Things to Note
+Only one connection can be established to the Cync server at a time per account.  
+This means that if you are using the library, and then you open the Cync app on your phone, your library's connection will be closed.  
+The server is the one that closes the connection, so unfortunately there is no getting around this. The library will attempt to reestablish the connection after 15 seconds.  
+However, also note that once the library reestablishes the connection, your Cync app's connection will be closed. Love it.
+
 # Thanks
 A special thanks to [nikshriv](https://github.com/nikshriv)'s cync_lights project (https://github.com/nikshriv/cync_lights), and  
 [unixpickle](https://github.com/unixpickle)'s cbyge project (https://github.com/unixpickle/cbyge).  
