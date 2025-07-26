@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Callable, Any, TYPE_CHECKING
 
-from ..exceptions import CyncError
+from pycync.exceptions import CyncError
 
 if TYPE_CHECKING:
-    from ..groups import CyncHome
+    from pycync.devices.groups import CyncHome
 
 _user_homes: dict[int, UserHomes] = {}
 

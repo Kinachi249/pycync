@@ -7,12 +7,11 @@ import asyncio
 from typing import Callable
 
 from .auth import Auth
-from .devices import create_device, CyncDevice
+from .devices import create_device, CyncDevice, device_storage
 from .exceptions import MissingAuthError
 from .const import REST_API_BASE_URL
-from .groups import CyncRoom, CyncGroup, CyncHome
-from .management.command_client import CommandClient
-from .management import device_storage
+from pycync.devices.groups import CyncRoom, CyncGroup, CyncHome
+from pycync.tcp.command_client import CommandClient
 
 
 class Cync:
@@ -31,7 +30,7 @@ class Cync:
         cync_api = Cync(auth)
 
         await cync_api.refresh_home_info()
-        cync_api._start_command_client()
+        cync_api._command_client.start_connection()
 
         return cync_api
 
@@ -66,18 +65,19 @@ class Cync:
         home_entries = [device for device in device_info if device["source"] == 5]
         homes = []
 
-        for home in home_entries:
+        for home_json in home_entries:
             home_devices: list[CyncDevice] = []
             rooms: list[CyncRoom] = []
             groups: list[CyncGroup] = []
+            home: CyncHome = CyncHome(home_json["name"], home_json["id"], [], [])
 
             mesh_device_info = await self._auth._send_user_request(
-                f"{REST_API_BASE_URL}/v2/product/{home["product_id"]}/device/{home["id"]}/property")
+                f"{REST_API_BASE_URL}/v2/product/{home_json["product_id"]}/device/{home_json["id"]}/property")
             if "bulbsArray" in mesh_device_info:
                 mesh_devices = mesh_device_info["bulbsArray"]
                 for mesh_device in mesh_devices:
                     matching_device = next(device for device in device_info if device["id"] == mesh_device["switchID"])
-                    created_device = create_device(matching_device, mesh_device, home["id"], self._command_client)
+                    created_device = create_device(matching_device, mesh_device, home, self._command_client)
 
                     home_devices.append(created_device)
 
@@ -90,23 +90,21 @@ class Cync:
             for group in group_json:
                 group_devices = [device for device in home_devices if
                                  device.isolated_mesh_id in group.get("deviceIDArray", [])]
-                groups.append(CyncGroup(group["displayName"], group["groupID"], group_devices))
+                groups.append(CyncGroup(group["displayName"], group["groupID"], home, group_devices, self._command_client))
                 home_devices = [device for device in home_devices if device not in group_devices]
 
             for room in room_json:
                 room_devices = [device for device in home_devices if device.isolated_mesh_id in room["deviceIDArray"]]
                 room_groups = [group for group in groups if group.group_id in room.get("subgroupIDArray", [])]
-                rooms.append(CyncRoom(room["displayName"], room["groupID"], room_groups, room_devices))
+                rooms.append(CyncRoom(room["displayName"], room["groupID"], home, room_groups, room_devices, self._command_client))
                 home_devices = [device for device in home_devices if device not in room_devices]
 
-            homes.append(CyncHome(home["name"], home["id"], rooms, home_devices))
+            home.global_devices = home_devices
+            home.rooms = rooms
+            homes.append(home)
 
         device_storage.set_user_homes(self._auth.user.user_id, homes)
 
-    async def shut_down(self):
+    def shut_down(self):
         """Shut down the command client instance and close its associated connections."""
-        await self._command_client.shut_down()
-
-    def _start_command_client(self):
-        """Start up the command client."""
-        self._command_client.start_connection()
+        self._command_client.shut_down()

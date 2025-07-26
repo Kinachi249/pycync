@@ -1,14 +1,13 @@
 import threading
 
-from .builder_utils import generate_zero_bytes, generate_checksum
-from .tcp_constants import PipeCommandCode
+from .packet import PipeCommandCode, generate_checksum, generate_zero_bytes
 
-_PIPE_PACKET_DELIMITER = bytearray.fromhex("7e")
+_INNER_PACKET_DELIMITER = bytearray.fromhex("7e")
 
-_pipe_packet_counter = 257  # Starts at 0x0101
-_pipe_packet_counter_lock = threading.Lock()
+_inner_packet_counter = 257  # Starts at 0x0101
+_inner_packet_counter_lock = threading.Lock()
 
-def build_query_device_pipe_packet(pipe_direction):
+def build_query_device_inner_packet(pipe_direction):
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
 
@@ -19,7 +18,7 @@ def build_query_device_pipe_packet(pipe_direction):
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value, command_bytes)
 
-def build_power_state_pipe_packet(pipe_direction, standalone_mesh_id, is_on):
+def build_power_state_inner_packet(pipe_direction, standalone_mesh_id, is_on):
     command_code = PipeCommandCode.SET_POWER_STATE.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
@@ -38,7 +37,7 @@ def build_power_state_pipe_packet(pipe_direction, standalone_mesh_id, is_on):
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
-def build_brightness_pipe_packet(pipe_direction, standalone_mesh_id, brightness):
+def build_brightness_inner_packet(pipe_direction, standalone_mesh_id, brightness):
     command_code = PipeCommandCode.SET_BRIGHTNESS.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
@@ -56,7 +55,7 @@ def build_brightness_pipe_packet(pipe_direction, standalone_mesh_id, brightness)
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
-def build_color_temp_pipe_packet(pipe_direction, standalone_mesh_id, color_temp):
+def build_color_temp_inner_packet(pipe_direction, standalone_mesh_id, color_temp):
     command_code = PipeCommandCode.SET_COLOR.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
@@ -74,7 +73,7 @@ def build_color_temp_pipe_packet(pipe_direction, standalone_mesh_id, color_temp)
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
-def build_rgb_pipe_packet(pipe_direction, standalone_mesh_id, rgb: tuple[int, int, int]):
+def build_rgb_inner_packet(pipe_direction, standalone_mesh_id, rgb: tuple[int, int, int]):
     command_code = PipeCommandCode.SET_COLOR.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
@@ -110,7 +109,7 @@ def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_cod
 
     encoded_body = _encode_7e_usages(packet_body)
 
-    return _PIPE_PACKET_DELIMITER + encoded_body + _PIPE_PACKET_DELIMITER
+    return _INNER_PACKET_DELIMITER + encoded_body + _INNER_PACKET_DELIMITER
 
 def _requires_second_sequence_inserted(pipe_command):
     return pipe_command in [
@@ -121,10 +120,10 @@ def _requires_second_sequence_inserted(pipe_command):
     ]
 
 def _get_and_increment_sequence_bytes():
-    with _pipe_packet_counter_lock:
-        global _pipe_packet_counter
-        counter_value = _pipe_packet_counter
-        _pipe_packet_counter = _pipe_packet_counter + 1 if _pipe_packet_counter + 1 < 4294967295 else 257
+    with _inner_packet_counter_lock:
+        global _inner_packet_counter
+        counter_value = _inner_packet_counter
+        _inner_packet_counter = _inner_packet_counter + 1 if _inner_packet_counter + 1 < 4294967295 else 257
 
         return counter_value.to_bytes(4, "little")
 

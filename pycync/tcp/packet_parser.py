@@ -1,24 +1,8 @@
 import struct
 
-from . import device_storage
-from .builder_utils import generate_checksum
-from .tcp_constants import MessageType, PipeCommandCode
-from ..mappings.capabilities import DEVICE_CAPABILITIES, CyncCapability
-
-class ParsedMessage:
-    def __init__(self, message_type, is_response: bool, device_id, data, version, command_code = None):
-        self.message_type = message_type
-        self.command_code = command_code
-        self.is_response = is_response
-        self.version = version
-        self.device_id = device_id
-        self.data = data
-
-class ParsedInnerFrame:
-    def __init__(self, command_type, data):
-        self.command_type = command_type
-        self.data = data
-
+from ..devices import device_storage
+from .packet import ParsedMessage, ParsedInnerFrame, MessageType, PipeCommandCode, generate_checksum
+from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
 
 def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
     packet_type = (packet[0] & 0xF0) >> 4

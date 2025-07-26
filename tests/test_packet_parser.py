@@ -1,11 +1,12 @@
 import pytest
 
 from pycync.devices import CyncDevice
-from pycync.management import packet_parser
-from pycync.management.tcp_constants import MessageType, PipeCommandCode
+from pycync.devices.groups import CyncHome
+from pycync.tcp import packet_parser
+from pycync.tcp.packet import MessageType, PipeCommandCode
 
 TEST_USER_ID = 123456
-TEST_HOME_ID = 5432
+TEST_HOME = CyncHome("test_home", 5432, [], [])
 
 def test_login_packet():
     login_response = bytearray.fromhex("18000000020000")
@@ -33,13 +34,13 @@ def test_probe_packet():
 
 def test_pipe_packet(mocker):
     mocked_devices = [
-        CyncDevice({"id": 1234}, {"deviceID": 4}, TEST_HOME_ID, None, True),
-        CyncDevice({"id": 2345}, {"deviceID": 7}, TEST_HOME_ID, None, True),
-        CyncDevice({"id": 3456}, {"deviceID": 2}, TEST_HOME_ID, None, True),
-        CyncDevice({"id": 4567}, {"deviceID": 232}, TEST_HOME_ID, None, True),
-        CyncDevice({"id": 5678}, {"deviceID": 30}, TEST_HOME_ID, None, True)
+        CyncDevice({"id": 1234}, {"deviceID": 4}, TEST_HOME, None, True),
+        CyncDevice({"id": 2345}, {"deviceID": 7}, TEST_HOME, None, True),
+        CyncDevice({"id": 3456}, {"deviceID": 2}, TEST_HOME, None, True),
+        CyncDevice({"id": 4567}, {"deviceID": 232}, TEST_HOME, None, True),
+        CyncDevice({"id": 5678}, {"deviceID": 30}, TEST_HOME, None, True)
     ]
-    mocker.patch("pycync.management.device_storage.get_associated_home_devices", return_value=mocked_devices)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
     pipe_response = bytearray.fromhex("730000009100000d8002e5007e01010000f9527d5e000500000005000400890100008901010000005000000039000000d796ff0007000001000000010000000000000000fe000000f8383000020000010000000101000000410000001e00000000000000e800000100000001010000005000000039000000000000001e0000010000000101000000500000003900000000000000d17e")
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
@@ -91,9 +92,9 @@ def test_pipe_packet(mocker):
 
 def test_thermostat_sync_packet(mocker):
     mocked_devices = [
-        CyncDevice({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME_ID, None, True)
+        CyncDevice({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
     ]
-    mocker.patch("pycync.management.device_storage.get_associated_home_devices", return_value=mocked_devices)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
     pipe_response = bytearray.fromhex("430000026700000d8001010657925d73656e736f7273446174613a5b7b2254797065223a22696e7465726e616c222c2254656d7065726174757265223a2237352e3946222c2248756d6964697479223a35302c22416374697665223a747275657d2c7b2254797065223a22736176616e742073656e736f72222c2250696e436f6465223a353332342c2254656d7065726174757265223a2237352e3746222c2248756d6964697479223a34382c22416374697665223a66616c73652c2242617474223a22322e3837227d2c7b2254797065223a22736176616e742073656e736f72222c2250696e436f6465223a353134302c2254656d7065726174757265223a2237352e3246222c2248756d6964697479223a35302c22416374697665223a66616c73652c2242617474223a22322e3930227d2c7b2254797065223a224e6f6e65222c2254656d7065726174757265223a6e756c6c2c2248756d6964697479223a6e756c6c2c22416374697665223a66616c73652c2242617474223a6e756c6c7d2c7b2254797065223a224e6f6e65222c2254656d7065726174757265223a6e756c6c2c2248756d6964697479223a6e756c6c2c22416374697665223a66616c73652c2242617474223a6e756c6c7d2c7b2254797065223a224e6f6e65222c2254656d7065726174757265223a6e756c6c2c2248756d6964697479223a6e756c6c2c22416374697665223a66616c73652c2242617474223a6e756c6c7d2c7b2254797065223a224e6f6e65222c2254656d7065726174757265223a6e756c6c2c2248756d6964697479223a6e756c6c2c22416374697665223a66616c73652c2242617474223a6e756c6c7d5d")
 
@@ -102,9 +103,9 @@ def test_thermostat_sync_packet(mocker):
 
 def test_light_sync_packet(mocker):
     mocked_devices = [
-        CyncDevice({"id": 2345}, {"deviceID": 7, "deviceType": 137}, TEST_HOME_ID, None, True)
+        CyncDevice({"id": 2345}, {"deviceID": 7, "deviceType": 137}, TEST_HOME, None, True)
     ]
-    mocker.patch("pycync.management.device_storage.get_associated_home_devices", return_value=mocked_devices)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
     pipe_response = bytearray.fromhex("430000001a0000092901010606001007014cfef8383001141e000000000000")
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)

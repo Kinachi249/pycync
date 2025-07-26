@@ -1,14 +1,9 @@
 import threading
 
-from .tcp_constants import MessageType, PROTOCOL_VERSION, PIPE_PACKET_REQUEST
-from .builder_utils import generate_zero_bytes
-from .pipe_packet_builder import (
-    build_query_device_pipe_packet,
-    build_power_state_pipe_packet,
-    build_color_temp_pipe_packet,
-    build_brightness_pipe_packet,
-    build_rgb_pipe_packet
-)
+from . import inner_packet_builder
+from .packet import MessageType, PipeDirection, generate_zero_bytes
+
+PROTOCOL_VERSION = 3
 
 _packet_counter = 1
 _packet_counter_lock = threading.Lock()
@@ -19,8 +14,8 @@ def build_login_request_packet(authorize_string: str, user_id: int):
     version_byte = version.to_bytes(1, "big")
     user_id_bytes = user_id.to_bytes(4, "big")
     user_auth_length_bytes = len(authorize_string).to_bytes(2, "big")
-    user_auth_bytes = bytearray(authorize_string, "ascii")
-    suffix_bytes = bytearray.fromhex("00001e")
+    user_auth_bytes = bytes(authorize_string, "ascii")
+    suffix_bytes = bytes.fromhex("00001e")
 
     payload = version_byte + user_id_bytes + user_auth_length_bytes + user_auth_bytes + suffix_bytes
     header = _generate_header(MessageType.LOGIN.value, False, payload)
@@ -32,7 +27,7 @@ def build_state_query_request_packet(device_id: int):
     packet_counter = _get_and_increment_packet_counter()
     packet_counter_bytes = packet_counter.to_bytes(2, "big")
 
-    pipe_packet = build_query_device_pipe_packet(PIPE_PACKET_REQUEST)
+    pipe_packet = inner_packet_builder.build_query_device_inner_packet(PipeDirection.REQUEST.value)
 
     payload = device_id_bytes + packet_counter_bytes + generate_zero_bytes(1) + pipe_packet
     header = _generate_header(MessageType.PIPE.value, False, payload)
@@ -44,7 +39,7 @@ def build_power_state_request_packet(device_id: int, standalone_mesh_id: int, is
     packet_counter = _get_and_increment_packet_counter()
     packet_counter_bytes = packet_counter.to_bytes(2, "big")
 
-    pipe_packet = build_power_state_pipe_packet(PIPE_PACKET_REQUEST, standalone_mesh_id, is_on)
+    pipe_packet = inner_packet_builder.build_power_state_inner_packet(PipeDirection.REQUEST.value, standalone_mesh_id, is_on)
 
     payload = device_id_bytes + packet_counter_bytes + generate_zero_bytes(1) + pipe_packet
     header = _generate_header(MessageType.PIPE.value, False, payload)
@@ -56,7 +51,7 @@ def build_brightness_request_packet(device_id: int, standalone_mesh_id: int, bri
     packet_counter = _get_and_increment_packet_counter()
     packet_counter_bytes = packet_counter.to_bytes(2, "big")
 
-    pipe_packet = build_brightness_pipe_packet(PIPE_PACKET_REQUEST, standalone_mesh_id, brightness)
+    pipe_packet = inner_packet_builder.build_brightness_inner_packet(PipeDirection.REQUEST.value, standalone_mesh_id, brightness)
 
     payload = device_id_bytes + packet_counter_bytes + generate_zero_bytes(1) + pipe_packet
     header = _generate_header(MessageType.PIPE.value, False, payload)
@@ -68,7 +63,7 @@ def build_color_temp_request_packet(device_id: int, standalone_mesh_id: int, col
     packet_counter = _get_and_increment_packet_counter()
     packet_counter_bytes = packet_counter.to_bytes(2, "big")
 
-    pipe_packet = build_color_temp_pipe_packet(PIPE_PACKET_REQUEST, standalone_mesh_id, color_temp)
+    pipe_packet = inner_packet_builder.build_color_temp_inner_packet(PipeDirection.REQUEST.value, standalone_mesh_id, color_temp)
 
     payload = device_id_bytes + packet_counter_bytes + generate_zero_bytes(1) + pipe_packet
     header = _generate_header(MessageType.PIPE.value, False, payload)
@@ -80,7 +75,7 @@ def build_rgb_request_packet(device_id: int, standalone_mesh_id: int, rgb: tuple
     packet_counter = _get_and_increment_packet_counter()
     packet_counter_bytes = packet_counter.to_bytes(2, "big")
 
-    pipe_packet = build_rgb_pipe_packet(PIPE_PACKET_REQUEST, standalone_mesh_id, rgb)
+    pipe_packet = inner_packet_builder.build_rgb_inner_packet(PipeDirection.REQUEST.value, standalone_mesh_id, rgb)
 
     payload = device_id_bytes + packet_counter_bytes + generate_zero_bytes(1) + pipe_packet
     header = _generate_header(MessageType.PIPE.value, False, payload)
