@@ -92,7 +92,7 @@ def build_rgb_pipe_packet(pipe_direction, standalone_mesh_id, rgb: tuple[int, in
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
-def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_code, command_bytes):
+def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_code, command_bytes) -> bytearray:
     command_code_bytes = pipe_command_code.to_bytes(1, "little")
 
     if _requires_second_sequence_inserted(pipe_command_code):
@@ -103,12 +103,14 @@ def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_cod
     packet_command_body = command_code_bytes + packet_command_arguments_length + command_bytes
     checksum = generate_checksum(packet_command_body).to_bytes(1, "little")
 
-    return (_PIPE_PACKET_DELIMITER +
-            sequence_bytes +
-            pipe_direction_bytes +
-            packet_command_body +
-            checksum +
-            _PIPE_PACKET_DELIMITER)
+    packet_body = (sequence_bytes +
+                   pipe_direction_bytes +
+                   packet_command_body +
+                   checksum)
+
+    encoded_body = _encode_7e_usages(packet_body)
+
+    return _PIPE_PACKET_DELIMITER + encoded_body + _PIPE_PACKET_DELIMITER
 
 def _requires_second_sequence_inserted(pipe_command):
     return pipe_command in [
@@ -125,3 +127,10 @@ def _get_and_increment_sequence_bytes():
         _pipe_packet_counter = _pipe_packet_counter + 1 if _pipe_packet_counter + 1 < 4294967295 else 257
 
         return counter_value.to_bytes(4, "little")
+
+def _encode_7e_usages(frame_bytes: bytearray) -> bytearray:
+    """
+    When sending inner frames, the byte 0x7e is encoded as 0x7d5e if it's within the inner frame,
+    so it isn't mistaken for a frame boundary marker.
+    """
+    return frame_bytes.replace(b"\x7e", b"\x7d\x5e")

@@ -106,6 +106,7 @@ class CommandClient:
             while data:
                 packet_length = struct.unpack(">I", data[1:5])[0]
                 packet = data[:packet_length + 5]
+                print(packet.hex())
                 try:
                     parsed_packet = packet_parser.parse_packet(packet, self._user.user_id)
                 except NotImplementedError:
@@ -217,12 +218,12 @@ class CommandClient:
 
     def _send_request(self, request):
         async def send():
+            while not self._login_acknowledged:
+                await asyncio.sleep(1)
+                self._LOGGER.debug("Awaiting login acknowledge before sending request.")
             self.writer.write(request)
             await self.writer.drain()
 
-        while not self._login_acknowledged:
-            asyncio.sleep(1)
-            self._LOGGER.debug("Awaiting login acknowledge before sending request.")
         self._loop.create_task(send())
 
 class ConnectionClosedError(Exception):

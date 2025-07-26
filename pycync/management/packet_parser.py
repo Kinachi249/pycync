@@ -6,7 +6,7 @@ from .tcp_constants import MessageType, PipeCommandCode
 from ..mappings.capabilities import DEVICE_CAPABILITIES, CyncCapability
 
 class ParsedMessage:
-    def __init__(self, message_type, is_response, device_id, data, version, command_code = None):
+    def __init__(self, message_type, is_response: bool, device_id, data, version, command_code = None):
         self.message_type = message_type
         self.command_code = command_code
         self.is_response = is_response
@@ -22,18 +22,21 @@ class ParsedInnerFrame:
 
 def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
     packet_type = (packet[0] & 0xF0) >> 4
-    is_response = packet[0] & 0x08 >> 3
+    is_response = bool((packet[0] & 0x08) >> 3)
     version = packet[0] & 0x7
     packet_length = struct.unpack(">I", packet[1:5])[0]
     packet = packet[5:]
 
+    if len(packet) != packet_length:
+        raise ValueError("Provided packet length did not match actual packet length. Expected: {}, got: {}".format(packet_length, len(packet)))
+
     match packet_type:
         case MessageType.LOGIN.value:
-            return ParsedMessage(MessageType.LOGIN.value, is_response, user_id, "", version)
+            return ParsedMessage(MessageType.LOGIN.value, is_response, None, None, version)
         case MessageType.PROBE.value:
-            return _parse_probe_packet(packet, packet_length, is_response, version)
+            return _parse_probe_packet(packet, is_response, version)
         case MessageType.SYNC.value:
-            return _parse_sync_packet(packet, packet_length, is_response, version, user_id)
+            return _parse_sync_packet(packet, is_response, version, user_id)
         case MessageType.PIPE.value:
             return _parse_pipe_packet(packet, packet_length, is_response, version, user_id)
         case MessageType.DISCONNECT.value:
@@ -41,21 +44,13 @@ def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
         case _:
             raise NotImplementedError
 
-def _parse_probe_packet(packet: bytearray, length, is_response, version) -> ParsedMessage:
-    if len(packet) != length:
-        """Provided length is incorrect."""
-        raise ValueError("Provided packet length did not match actual packet length. Expected: {}, got: {}, with {}".format(length, len(packet), packet.hex()))
-
+def _parse_probe_packet(packet: bytearray, is_response, version) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     data = packet[4:]
 
     return ParsedMessage(MessageType.PROBE.value, is_response, device_id, data, version)
 
-def _parse_sync_packet(packet: bytearray, length, is_response, version, user_id) -> ParsedMessage:
-    if len(packet) != length:
-        """Provided length is incorrect."""
-        raise ValueError("Provided packet length did not match actual packet length. Expected: {}, got: {}, with {}".format(length, len(packet), packet.hex()))
-
+def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
     device_type = next(device.device_type for device in device_list if device.device_id == device_id)
@@ -85,10 +80,6 @@ def _parse_sync_packet(packet: bytearray, length, is_response, version, user_id)
         raise NotImplementedError
 
 def _parse_pipe_packet(packet: bytearray, length, is_response, version, user_id) -> ParsedMessage:
-    if len(packet) != length:
-        """Provided length is incorrect."""
-        raise ValueError("Provided packet length did not match actual packet length. Expected: {}, got: {}, with {}".format(length, len(packet), packet.hex()))
-
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
 
@@ -112,7 +103,7 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
     data_length = struct.unpack("<H", frame_bytes[2:4])[0]
 
     frame_checksum = frame_bytes[-1]
-    if not _verify_checksum(frame_bytes[1:-1], frame_checksum):
+    if not _does_checksum_match(frame_bytes[1:-1], frame_checksum):
         raise ValueError("Invalid checksum for inner packet frame")
 
     match command_code:
@@ -162,6 +153,6 @@ def _decode_7e_usages(frame_bytes: bytearray) -> bytearray:
     """
     return frame_bytes.replace(b"\x7d\x5e", b"\x7e")
 
-def _verify_checksum(data_bytes: bytearray, expected_checksum: int) -> bool:
+def _does_checksum_match(data_bytes: bytearray, expected_checksum: int) -> bool:
     checksum_result = generate_checksum(data_bytes)
     return checksum_result == expected_checksum

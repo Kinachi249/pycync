@@ -34,17 +34,17 @@ class CyncDevice:
     def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], home_id: int, command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
         if device_datapoint_data is None:
             device_datapoint_data = {}
-        self.is_online = device_info["is_online"]
+        self.is_online = device_info.get("is_online", False)
         self.wifi_connected = wifi_connected
-        self.device_id = device_info["id"]
-        self.mesh_device_id = mesh_device_info["deviceID"]
+        self.device_id = device_info.get("id")
+        self.mesh_device_id = mesh_device_info.get("deviceID")
         self.isolated_mesh_id = self.mesh_device_id % home_id
         self.home_id = home_id
-        self.name = mesh_device_info["displayName"]
-        self.device_type = mesh_device_info["deviceType"]
-        self.mac = device_info["mac"]
-        self.product_id = device_info["product_id"]
-        self.authorize_code = device_info["authorize_code"]
+        self.name = mesh_device_info.get("displayName")
+        self.device_type = mesh_device_info.get("deviceType", DeviceType.UNKNOWN.value)
+        self.mac = device_info.get("mac")
+        self.product_id = device_info.get("product_id")
+        self.authorize_code = device_info.get("authorize_code")
         self.datapoints = device_datapoint_data
         self._command_client = command_client
         self.capabilities = DEVICE_CAPABILITIES.get(self.device_type, {})
