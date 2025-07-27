@@ -1,7 +1,7 @@
 """
 Contains auth information about an authenticated user, and performs generic REST API calls for the user.
 """
-
+import time
 from asyncio import TimeoutError
 from json import dumps
 from typing import Any
@@ -10,7 +10,8 @@ from aiohttp import ClientSession, ClientResponseError
 
 from .const import GE_CORP_ID, REST_API_BASE_URL
 from .user import User
-from .exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError
+from .exceptions import BadRequestError, TwoFactorRequiredError, AuthFailedError, CyncError
+
 
 class Auth:
     def __init__(self, session: ClientSession, user: User = None, username: str = None, password: str = None) -> None:
@@ -19,7 +20,6 @@ class Auth:
         self._user = user
         self._username = username
         self._password = password
-        self._device_credentials = {}
 
     @property
     def user(self):
@@ -55,15 +55,10 @@ class Auth:
 
                 await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/two_factor/email/verifycode', method="POST", json=two_factor_request)
                 raise TwoFactorRequiredError('Two factor verification required. Code sent to user email.')
-            except Exception as ex:
-                raise AuthFailedError(ex)
         else:
-            try:
-                user_info = await self._async_auth_user_two_factor(two_factor_code)
-                self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"], user_info["user_id"], expire_in=user_info["expire_in"])
-                return self._user
-            except Exception as ex:
-                raise AuthFailedError(ex)
+            user_info = await self._async_auth_user_two_factor(two_factor_code)
+            self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"], user_info["user_id"], expire_in=user_info["expire_in"])
+            return self._user
 
     async def _async_auth_user(self):
         """Attempt to authenticate user without a two factor code."""
@@ -82,8 +77,8 @@ class Auth:
         try:
             auth_response = await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/user_auth/two_factor', method="POST", json=two_factor_request)
             return auth_response
-        except Exception as ex:
-            raise AuthFailedError(ex)
+        except BadRequestError as ex:
+            raise AuthFailedError("Invalid two-factor code") from ex
 
     async def _async_refresh_user_token(self):
         """
@@ -101,8 +96,7 @@ class Auth:
 
             auth_response = await resp.json()
 
-            self._user.access_token = auth_response["access_token"]
-            self._user.refresh_token = auth_response["refresh_token"]
+            self._user.set_new_access_token(auth_response["access_token"], auth_response["refresh_token"], auth_response["expire_in"])
         except Exception as ex:
             raise AuthFailedError(ex)
 
@@ -116,33 +110,24 @@ class Auth:
         """Send an HTTP request with the provided parameters."""
         headers = {}
         if self.user:
+            if self.user.expires_at - time.time() < 3600:
+                await self._async_refresh_user_token()
             headers["Access-Token"] = self.user.access_token
 
         try:
-            try:
-                if json:
-                    body = dumps(json)
+            if json:
+                body = dumps(json)
 
-                    resp = await self.session.request(method, url, headers=headers, data=body)
-                else:
-                    resp = await self.session.request(method, url, headers=headers)
-            except Exception:
-                await self._async_refresh_user_token()
-                headers["Access-Token"] = self.user.access_token
-
-                if json:
-                    body = dumps(json)
-
-                    resp = await self.session.request(method, url, headers=headers, data=body)
-                else:
-                    resp = await self.session.request(method, url, headers=headers)
+                resp = await self.session.request(method, url, headers=headers, data=body)
+            else:
+                resp = await self.session.request(method, url, headers=headers)
 
         except TimeoutError as ex:
             msg = f"Timeout error during query of url {url}: {ex}"
-            raise Exception(msg) from ex
+            raise CyncError(msg) from ex
         except Exception as ex:
             msg = f"Unknown error during query of url {url}: {ex}"
-            raise Exception(msg) from ex
+            raise CyncError(msg) from ex
 
         async with resp:
             if resp.status == 400:
@@ -150,6 +135,7 @@ class Auth:
 
             if resp.status == 401 or resp.status == 403:
                 await self._async_refresh_user_token()
+
                 headers["Access-Token"] = self.user.access_token
 
                 if json:
@@ -167,6 +153,6 @@ class Auth:
                         f"HTTP error with status code {resp.status} "
                         f"during query of url {url}: {ex}"
                     )
-                    raise Exception(msg) from ex
+                    raise CyncError(msg) from ex
 
             return await resp.json()

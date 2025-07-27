@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 class CyncControllable(Protocol):
     """Protocol describing any Cync entity that can be controlled by the user."""
 
-    name: str
     parent_home: CyncHome
 
     @property
@@ -23,7 +22,18 @@ class CyncControllable(Protocol):
 
     @property
     @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
     def mesh_reference_id(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def unique_id(self) -> str:
+        """Provides an identifier that uniquely identifies this controllable entity."""
         pass
 
     @abstractmethod

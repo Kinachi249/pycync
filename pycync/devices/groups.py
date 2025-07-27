@@ -55,7 +55,7 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
     """Represents a "room" in the Cync app."""
 
     def __init__(self, name: str, room_id: int, parent_home: CyncHome, groups: list[CyncGroup], devices: list[CyncDevice], command_client: CommandClient):
-        self.name = name
+        self._name = name
         self.room_id = room_id
         self.parent_home = parent_home
         self.groups = groups
@@ -70,8 +70,16 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
                 .intersection([group.capabilities for group in self.groups]))
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def mesh_reference_id(self) -> int:
         return self.room_id
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self.parent_home.home_id}-{self.room_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
@@ -114,7 +122,7 @@ class CyncGroup(GroupedCyncDevices, CyncControllable):
     """Represents a "group" in the Cync app."""
 
     def __init__(self, name: str, group_id: int, parent_home: CyncHome, devices: list[CyncDevice], command_client: CommandClient):
-        self.name = name
+        self._name = name
         self.group_id = group_id
         self.parent_home = parent_home
         self.devices = devices
@@ -126,8 +134,16 @@ class CyncGroup(GroupedCyncDevices, CyncControllable):
         return all_capabilities.intersection([frozenset(device.capabilities) for device in self.devices])
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def mesh_reference_id(self) -> int:
         return self.group_id
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self.parent_home.home_id}-{self.group_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities

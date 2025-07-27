@@ -35,3 +35,9 @@ class User:
     def user_id(self) -> int:
         """Return the ID of the user."""
         return self._user_id
+
+    def set_new_access_token(self, access_token: str, refresh_token: str, expire_in: float):
+        """Set the new access token."""
+        self._access_token = access_token
+        self._refresh_token = refresh_token
+        self._expires_at = time.time() + expire_in

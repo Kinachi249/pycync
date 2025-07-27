@@ -44,7 +44,7 @@ class CyncDevice(CyncControllable):
         self.mesh_device_id = mesh_device_info.get("deviceID")
         self.isolated_mesh_id = self.mesh_device_id % parent_home.home_id
         self.parent_home = parent_home
-        self.name = mesh_device_info.get("displayName")
+        self._name = mesh_device_info.get("displayName")
         self.device_type = mesh_device_info.get("deviceType", DeviceType.UNKNOWN.value)
         self.mac = device_info.get("mac")
         self.product_id = device_info.get("product_id")
@@ -65,8 +65,16 @@ class CyncDevice(CyncControllable):
         return self._capabilities
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def mesh_reference_id(self) -> int:
         return self.isolated_mesh_id
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self.parent_home.home_id}-{self.device_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
