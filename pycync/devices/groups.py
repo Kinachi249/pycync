@@ -10,6 +10,7 @@ from pycync.exceptions import UnsupportedCapabilityError
 from pycync.tcp.command_client import CommandClient
 from pycync.devices.capabilities import CyncCapability
 
+
 class GroupedCyncDevices(ABC):
     """Abstract definition for a Cync device grouping."""
 
@@ -17,6 +18,7 @@ class GroupedCyncDevices(ABC):
     def get_device_types(self) -> frozenset[type[CyncDevice]]:
         """Returns all distinct device types found in the group."""
         pass
+
 
 class CyncHome:
     """Represents a "home" in the Cync app."""
@@ -33,7 +35,8 @@ class CyncHome:
         The home is searched recursively, so each room and group within the home will be searched.
         """
 
-        search_result = next((device for device in self.get_flattened_device_list() if device.device_id == device_id), None)
+        search_result = next((device for device in self.get_flattened_device_list() if device.device_id == device_id),
+                             None)
 
         return search_result is not None
 
@@ -51,10 +54,12 @@ class CyncHome:
 
         return home_devices
 
+
 class CyncRoom(GroupedCyncDevices, CyncControllable):
     """Represents a "room" in the Cync app."""
 
-    def __init__(self, name: str, room_id: int, parent_home: CyncHome, groups: list[CyncGroup], devices: list[CyncDevice], command_client: CommandClient):
+    def __init__(self, name: str, room_id: int, parent_home: CyncHome, groups: list[CyncGroup],
+                 devices: list[CyncDevice], command_client: CommandClient):
         self._name = name
         self.room_id = room_id
         self.parent_home = parent_home
@@ -85,7 +90,8 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
         return capability in self.capabilities
 
     def get_device_types(self) -> frozenset[type[CyncDevice]]:
-        return frozenset({type(device) for device in self.devices}).union([group.get_device_types() for group in self.groups])
+        return frozenset({type(device) for device in self.devices}).union(
+            [group.get_device_types() for group in self.groups])
 
     async def turn_on(self):
         if not self.supports_capability(CyncCapability.ON_OFF):
@@ -121,7 +127,8 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
 class CyncGroup(GroupedCyncDevices, CyncControllable):
     """Represents a "group" in the Cync app."""
 
-    def __init__(self, name: str, group_id: int, parent_home: CyncHome, devices: list[CyncDevice], command_client: CommandClient):
+    def __init__(self, name: str, group_id: int, parent_home: CyncHome, devices: list[CyncDevice],
+                 command_client: CommandClient):
         self._name = name
         self.group_id = group_id
         self.parent_home = parent_home

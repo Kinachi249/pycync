@@ -1,9 +1,11 @@
 import time
 
+
 class User:
     """A Cync user account and their auth credentials."""
 
-    def __init__(self, access_token: str, refresh_token: str, authorize: str, user_id: int, expire_in: int = None, expires_at: float = None):
+    def __init__(self, access_token: str, refresh_token: str, authorize: str, user_id: int, expire_in: int = None,
+                 expires_at: float = None):
         """Initialize the User object."""
         self._access_token = access_token
         self._refresh_token = refresh_token

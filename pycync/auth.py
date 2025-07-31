@@ -48,16 +48,19 @@ class Auth:
         if two_factor_code is None:
             try:
                 user_info = await self._async_auth_user()
-                self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"], user_info["user_id"], expire_in=user_info["expire_in"])
+                self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"],
+                                  user_info["user_id"], expire_in=user_info["expire_in"])
                 return self._user
             except TwoFactorRequiredError:
                 two_factor_request = {'corp_id': GE_CORP_ID, 'email': self.username, 'local_lang': "en-us"}
 
-                await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/two_factor/email/verifycode', method="POST", json=two_factor_request)
+                await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/two_factor/email/verifycode', method="POST",
+                                              json=two_factor_request)
                 raise TwoFactorRequiredError('Two factor verification required. Code sent to user email.')
         else:
             user_info = await self._async_auth_user_two_factor(two_factor_code)
-            self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"], user_info["user_id"], expire_in=user_info["expire_in"])
+            self._user = User(user_info["access_token"], user_info["refresh_token"], user_info["authorize"],
+                              user_info["user_id"], expire_in=user_info["expire_in"])
             return self._user
 
     async def _async_auth_user(self):
@@ -65,17 +68,20 @@ class Auth:
         auth_data = {'corp_id': GE_CORP_ID, 'email': self.username, 'password': self.password}
 
         try:
-            auth_response = await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/user_auth', method="POST", json=auth_data)
+            auth_response = await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/user_auth', method="POST",
+                                                          json=auth_data)
             return auth_response
         except BadRequestError:
             raise TwoFactorRequiredError("Two factor verification required.")
 
     async def _async_auth_user_two_factor(self, two_factor_code: str):
         """Attempt to authenticate user with a two factor code."""
-        two_factor_request = {'corp_id': GE_CORP_ID, 'email': self.username,'password': self.password, 'two_factor': two_factor_code, 'resource': 1}
+        two_factor_request = {'corp_id': GE_CORP_ID, 'email': self.username, 'password': self.password,
+                              'two_factor': two_factor_code, 'resource': 1}
 
         try:
-            auth_response = await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/user_auth/two_factor', method="POST", json=two_factor_request)
+            auth_response = await self._send_user_request(url=f'{REST_API_BASE_URL}/v2/user_auth/two_factor',
+                                                          method="POST", json=two_factor_request)
             return auth_response
         except BadRequestError as ex:
             raise AuthFailedError("Invalid two-factor code") from ex
@@ -90,22 +96,24 @@ class Auth:
         try:
             body = dumps(refresh_request)
 
-            resp = await self.session.request(method="POST", url=f'{REST_API_BASE_URL}/v2/user/token/refresh', data=body)
+            resp = await self.session.request(method="POST", url=f'{REST_API_BASE_URL}/v2/user/token/refresh',
+                                              data=body)
             if resp.status != 200:
                 raise AuthFailedError('Refresh token failed')
 
             auth_response = await resp.json()
 
-            self._user.set_new_access_token(auth_response["access_token"], auth_response["refresh_token"], auth_response["expire_in"])
+            self._user.set_new_access_token(auth_response["access_token"], auth_response["refresh_token"],
+                                            auth_response["expire_in"])
         except Exception as ex:
             raise AuthFailedError(ex)
 
     async def _send_user_request(
-        self,
-        url: str,
-        method: str = "GET",
-        json: dict[Any, Any] | None = None,
-        raise_for_status: bool = True,
+            self,
+            url: str,
+            method: str = "GET",
+            json: dict[Any, Any] | None = None,
+            raise_for_status: bool = True,
     ) -> dict:
         """Send an HTTP request with the provided parameters."""
         headers = {}

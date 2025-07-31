@@ -1,7 +1,6 @@
 """
 The proverbial "beating heart" of the Cync client.
-This TCP client will retain an open connection the same way that the Cync app does.
-It listens for device state changes and updates them accordingly, and also handles sending all device action commands.
+This client listens for device state changes and updates them accordingly, and also handles sending all device action commands.
 """
 
 from __future__ import annotations
@@ -40,7 +39,8 @@ class CommandClient:
             case MessageType.LOGIN.value:
                 self.probe_devices()
             case MessageType.PROBE.value if parsed_message.version != 0:
-                devices_in_home = device_storage.get_associated_home_devices(self._user.user_id, parsed_message.device_id)
+                devices_in_home = device_storage.get_associated_home_devices(self._user.user_id,
+                                                                             parsed_message.device_id)
                 device = next(device for device in devices_in_home if device.device_id == parsed_message.device_id)
                 device.set_wifi_connected(True)
                 self._device_statuses_updated = True
@@ -77,7 +77,7 @@ class CommandClient:
     async def set_brightness(self, controllable: CyncControllable, brightness: int):
         """Sets the brightness. Must be between 0 and 100 inclusive."""
         if brightness < 0 or brightness > 100:
-            raise CyncError()
+            raise CyncError("Brightness must be between 0 and 100 inclusive")
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
@@ -89,7 +89,7 @@ class CommandClient:
         1 represents the most "blue" and 100 represents the most "orange".
         """
         if color_temp < 1 or color_temp > 100:
-            raise CyncError()
+            raise CyncError("Color temperature must be between 1 and 100 inclusive.")
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
@@ -98,7 +98,7 @@ class CommandClient:
     async def set_rgb(self, controllable: CyncControllable, rgb: tuple[int, int, int]):
         """Sets the RGB color. Each color must be between 0 and 255 inclusive."""
         if rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255:
-            raise CyncError()
+            raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
@@ -112,7 +112,8 @@ class CommandClient:
             await asyncio.sleep(1)
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
 
-        hub_device = next((device for device in home.get_flattened_device_list() if device.wifi_connected and CyncCapability.SIG_MESH in device.capabilities), None)
+        hub_device = next((device for device in home.get_flattened_device_list() if
+                           device.wifi_connected and CyncCapability.SIG_MESH in device.capabilities), None)
         if hub_device is None:
             raise NoHubConnectedError
 

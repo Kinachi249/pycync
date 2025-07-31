@@ -13,7 +13,10 @@ from pycync.devices.device_types import DEVICE_TYPES, DeviceType
 if TYPE_CHECKING:
     from .groups import CyncHome
 
-def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome, command_client: CommandClient, wifi_connected: bool = False, device_datapoint_data: dict[str, Any] = None) -> CyncDevice:
+
+def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
+                  command_client: CommandClient, wifi_connected: bool = False,
+                  device_datapoint_data: dict[str, Any] = None) -> CyncDevice:
     device_type_id = mesh_device_info["deviceType"]
 
     device_type = DEVICE_TYPES.get(device_type_id, DeviceType.UNKNOWN)
@@ -28,14 +31,18 @@ def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any],
               DeviceType.DOWNLIGHT |
               DeviceType.UNDERCABINET_FIXTURES |
               DeviceType.LIGHT_TILE):
-            return CyncLight(device_info, mesh_device_info, parent_home, command_client, wifi_connected, device_datapoint_data)
+            return CyncLight(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
+                             device_datapoint_data)
         case _:
-            return CyncDevice(device_info, mesh_device_info, parent_home, command_client, wifi_connected, device_datapoint_data)
+            return CyncDevice(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
+                              device_datapoint_data)
+
 
 class CyncDevice(CyncControllable):
     """Definition for a generic Cync device, with the common attributes shared between device types."""
 
-    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome, command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
+    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
+                 command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
         if device_datapoint_data is None:
             device_datapoint_data = {}
         self.is_online = device_info.get("is_online", False)
@@ -79,10 +86,14 @@ class CyncDevice(CyncControllable):
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
 
+
 class CyncLight(CyncDevice):
     """Class for representing Cync lights."""
-    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome, command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
-        super().__init__(device_info, mesh_device_info, parent_home, command_client, wifi_connected, device_datapoint_data)
+
+    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
+                 command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
+        super().__init__(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
+                         device_datapoint_data)
 
         self.is_on = False
         self.brightness = 0

@@ -90,13 +90,15 @@ class Cync:
             for group in group_json:
                 group_devices = [device for device in home_devices if
                                  device.isolated_mesh_id in group.get("deviceIDArray", [])]
-                groups.append(CyncGroup(group["displayName"], group["groupID"], home, group_devices, self._command_client))
+                groups.append(
+                    CyncGroup(group["displayName"], group["groupID"], home, group_devices, self._command_client))
                 home_devices = [device for device in home_devices if device not in group_devices]
 
             for room in room_json:
                 room_devices = [device for device in home_devices if device.isolated_mesh_id in room["deviceIDArray"]]
                 room_groups = [group for group in groups if group.group_id in room.get("subgroupIDArray", [])]
-                rooms.append(CyncRoom(room["displayName"], room["groupID"], home, room_groups, room_devices, self._command_client))
+                rooms.append(CyncRoom(room["displayName"], room["groupID"], home, room_groups, room_devices,
+                                      self._command_client))
                 home_devices = [device for device in home_devices if device not in room_devices]
 
             home.global_devices = home_devices

@@ -1,8 +1,11 @@
+"""Module responsible for parsing raw TCP packets received from the Cync server into a more usable format."""
+
 import struct
 
 from ..devices import device_storage
 from .packet import ParsedMessage, ParsedInnerFrame, MessageType, PipeCommandCode, generate_checksum
 from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
+
 
 def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
     packet_type = (packet[0] & 0xF0) >> 4
@@ -12,7 +15,9 @@ def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
     packet = packet[5:]
 
     if len(packet) != packet_length:
-        raise ValueError("Provided packet length did not match actual packet length. Expected: {}, got: {}".format(packet_length, len(packet)))
+        raise ValueError(
+            "Provided packet length did not match actual packet length. Expected: {}, got: {}".format(packet_length,
+                                                                                                      len(packet)))
 
     match packet_type:
         case MessageType.LOGIN.value:
@@ -28,11 +33,13 @@ def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
         case _:
             raise NotImplementedError
 
+
 def _parse_probe_packet(packet: bytearray, is_response, version) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     data = packet[4:]
 
     return ParsedMessage(MessageType.PROBE.value, is_response, device_id, data, version)
+
 
 def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
@@ -63,6 +70,7 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
     else:
         raise NotImplementedError
 
+
 def _parse_pipe_packet(packet: bytearray, length, is_response, version, user_id) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
@@ -72,16 +80,18 @@ def _parse_pipe_packet(packet: bytearray, length, is_response, version, user_id)
     else:
         raise NotImplementedError
 
-    return ParsedMessage(MessageType.PIPE.value, is_response, device_id, inner_frame.data, version, inner_frame.command_type)
+    return ParsedMessage(MessageType.PIPE.value, is_response, device_id, inner_frame.data, version,
+                         inner_frame.command_type)
+
 
 def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInnerFrame:
     if frame_bytes[0] != 0x7e or frame_bytes[-1] != 0x7e:
         raise ValueError("Invalid delimiters for inner packet frame")
 
-    frame_bytes = frame_bytes[1:-1] # Trim off delimiters
+    frame_bytes = frame_bytes[1:-1]  # Trim off delimiters
     frame_bytes = _decode_7e_usages(frame_bytes)
 
-    frame_bytes = frame_bytes[4:] # Trim off sequence number, we don't need it
+    frame_bytes = frame_bytes[4:]  # Trim off sequence number, we don't need it
 
     command_code = frame_bytes[1]
     data_length = struct.unpack("<H", frame_bytes[2:4])[0]
@@ -97,6 +107,7 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
             raise NotImplementedError
 
     return ParsedInnerFrame(command_code, parsed_data)
+
 
 def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> dict[int, dict]:
     updated_device_data = {}
@@ -129,6 +140,7 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
     return updated_device_data
 
+
 def _decode_7e_usages(frame_bytes: bytearray) -> bytearray:
     """
     When sending inner frames, the byte 0x7e is encoded as 0x7d5e if it's within the inner frame,
@@ -136,6 +148,7 @@ def _decode_7e_usages(frame_bytes: bytearray) -> bytearray:
     We need to undo that when reading it.
     """
     return frame_bytes.replace(b"\x7d\x5e", b"\x7e")
+
 
 def _does_checksum_match(data_bytes: bytearray, expected_checksum: int) -> bool:
     checksum_result = generate_checksum(data_bytes)
