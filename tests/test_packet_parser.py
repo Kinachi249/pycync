@@ -1,11 +1,11 @@
 import pytest
 
-from pycync.devices import CyncDevice
+from pycync import CyncLight
 from pycync.devices.groups import CyncHome
 from pycync.tcp import packet_parser
 from pycync.tcp.packet import MessageType, PipeCommandCode
+from tests import TEST_USER_ID
 
-TEST_USER_ID = 123456
 TEST_HOME = CyncHome("test_home", 5432, [], [])
 
 def test_login_packet():
@@ -33,12 +33,19 @@ def test_probe_packet():
     assert parsed_message.data == expected_data
 
 def test_pipe_packet(mocker):
+    device_1234 = CyncLight({"id": 1234}, {"deviceID": 4}, TEST_HOME, None, True)
+    device_2345 = CyncLight({"id": 2345}, {"deviceID": 7}, TEST_HOME, None, True)
+    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2}, TEST_HOME, None, True)
+    device_4567 = CyncLight({"id": 4567}, {"deviceID": 232}, TEST_HOME, None, True)
+    device_5678 = CyncLight({"id": 5678}, {"deviceID": 30}, TEST_HOME, None, True)
+
+
     mocked_devices = [
-        CyncDevice({"id": 1234}, {"deviceID": 4}, TEST_HOME, None, True),
-        CyncDevice({"id": 2345}, {"deviceID": 7}, TEST_HOME, None, True),
-        CyncDevice({"id": 3456}, {"deviceID": 2}, TEST_HOME, None, True),
-        CyncDevice({"id": 4567}, {"deviceID": 232}, TEST_HOME, None, True),
-        CyncDevice({"id": 5678}, {"deviceID": 30}, TEST_HOME, None, True)
+        device_1234,
+        device_2345,
+        device_3456,
+        device_4567,
+        device_5678
     ]
     mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
@@ -46,41 +53,11 @@ def test_pipe_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        1234: {
-            'brightness': 80,
-            'color_mode': 57,
-            'is_on': 1,
-            'is_online': 1,
-            'rgb': (215, 150, 255)
-        },
-        2345: {
-            'brightness': 0,
-            'color_mode': 254,
-            'is_on': 0,
-            'is_online': 1,
-            'rgb': (248, 56, 48)
-        },
-        3456: {
-            'brightness': 65,
-            'color_mode': 30,
-            'is_on': 1,
-            'is_online': 1,
-            'rgb': (0, 0, 0)
-        },
-        4567: {
-            'brightness': 80,
-            'color_mode': 57,
-            'is_on': 1,
-            'is_online': 1,
-            'rgb': (0, 0, 0)
-        },
-        5678: {
-            'brightness': 80,
-            'color_mode': 57,
-            'is_on': 1,
-            'is_online': 1,
-            'rgb': (0, 0, 0)
-        }
+        1234: device_1234,
+        2345: device_2345,
+        3456: device_3456,
+        4567: device_4567,
+        5678: device_5678
     }
 
     assert parsed_message.message_type == MessageType.PIPE.value
@@ -91,8 +68,10 @@ def test_pipe_packet(mocker):
     assert parsed_message.data == expected_device_data
 
 def test_thermostat_sync_packet(mocker):
+    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
+
     mocked_devices = [
-        CyncDevice({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
+        device_3456
     ]
     mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
@@ -102,8 +81,10 @@ def test_thermostat_sync_packet(mocker):
         packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
 def test_light_sync_packet(mocker):
+    device_2345 = CyncLight({"id": 2345}, {"deviceID": 7, "deviceType": 137}, TEST_HOME, None, True)
+
     mocked_devices = [
-        CyncDevice({"id": 2345}, {"deviceID": 7, "deviceType": 137}, TEST_HOME, None, True)
+        device_2345
     ]
     mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
 
@@ -111,12 +92,7 @@ def test_light_sync_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        2345: {
-            'brightness': 76,
-            'color_mode': 254,
-            'is_on': 1,
-            'rgb': (248, 56, 48)
-        }
+        2345: device_2345
     }
 
     assert parsed_message.message_type == MessageType.SYNC.value
@@ -126,7 +102,14 @@ def test_light_sync_packet(mocker):
     assert parsed_message.command_code is None
     assert parsed_message.data == expected_device_data
 
-def test_bad_checksum():
+def test_bad_checksum(mocker):
+    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
+
+    mocked_devices = [
+        device_3456
+    ]
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=mocked_devices)
+
     pipe_response = bytearray.fromhex("730000009100000d8002e5007e01010000f9527d5e000500000005000400890100008901010000005000000039000000d796ff0007000001000000010000000000000000fe000000f8383000020000010000000101000000410000001e00000000000000e800000100000001010000005000000039000000000000001e0000010000000101000000500000003900000000000000127e")
 
     with pytest.raises(ValueError, match='Invalid checksum for inner packet frame'):

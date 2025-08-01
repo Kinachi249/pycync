@@ -1,6 +1,6 @@
 from pycync.tcp import packet_builder
+from tests import TEST_USER_ID
 
-TEST_USER_ID = 123456
 TEST_DEVICE_ID = 23456
 TEST_DEVICE_MESH_ID = 5
 
