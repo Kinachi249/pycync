@@ -86,7 +86,7 @@ class Auth:
         except BadRequestError as ex:
             raise AuthFailedError("Invalid two-factor code") from ex
 
-    async def _async_refresh_user_token(self):
+    async def async_refresh_user_token(self):
         """
         Refresh the user's session token. If the token has already expired, a new login will be required.
         (Likely also requiring a new two factor code to be provided.)
@@ -119,7 +119,7 @@ class Auth:
         headers = {}
         if self.user:
             if self.user.expires_at - time.time() < 3600:
-                await self._async_refresh_user_token()
+                await self.async_refresh_user_token()
             headers["Access-Token"] = self.user.access_token
 
         try:
@@ -142,7 +142,7 @@ class Auth:
                 raise BadRequestError("Bad Request")
 
             if resp.status == 401 or resp.status == 403:
-                await self._async_refresh_user_token()
+                await self.async_refresh_user_token()
 
                 headers["Access-Token"] = self.user.access_token
 

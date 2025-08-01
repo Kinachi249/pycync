@@ -108,6 +108,11 @@ class CommandClient:
         self._tcp_manager.shut_down()
 
     async def _fetch_hub_device(self, home: CyncHome) -> CyncDevice:
+        """
+        Fetches an eligible 'hub device' from a given home.
+        A hub device is a device that is actively connected to Wi-Fi, and can act as a proxy into the Bluetooth mesh.
+        """
+
         while not self._device_statuses_updated:
             await asyncio.sleep(1)
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")

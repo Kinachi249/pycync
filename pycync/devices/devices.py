@@ -95,23 +95,26 @@ class CyncLight(CyncDevice):
         super().__init__(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
                          device_datapoint_data)
 
-        self.is_on = False
-        self.brightness = 0
-        self.color_temp = 0
-        self.rgb = 0, 0, 0
+        self._is_on = False
+        self._brightness = 0
+        self._color_temp = 0
+        self._rgb = 0, 0, 0
 
+    @property
     def is_on(self) -> bool:
         if not self.supports_capability(CyncCapability.ON_OFF):
             raise UnsupportedCapabilityError()
 
-        return self.is_on
+        return self._is_on
 
+    @property
     def brightness(self) -> int:
         if not self.supports_capability(CyncCapability.DIMMING):
             raise UnsupportedCapabilityError()
 
-        return self.brightness
+        return self._brightness
 
+    @property
     def color_temp(self) -> int:
         """
         Return color temp between 1-100. Returns zero if bulb is not in color temp mode,
@@ -120,8 +123,17 @@ class CyncLight(CyncDevice):
         if not self.supports_capability(CyncCapability.CCT_COLOR):
             raise UnsupportedCapabilityError()
 
-        return self.color_temp if 1 <= self.color_temp <= 100 else 0
+        return self._color_temp if 1 <= self._color_temp <= 100 else 0
 
+    @property
+    def color_mode(self) -> int:
+        """
+        A more generalized version of 'color temp', as this field is also used to store state that indicates
+        when the light is in RGB mode and effect modes.
+        """
+        return self._color_temp
+
+    @property
     def rgb(self) -> Tuple[int, int, int]:
         """
         Return RGB tuple, with each value between 1-256. Returns all zeros if bulb is not in RGB mode,
@@ -130,7 +142,18 @@ class CyncLight(CyncDevice):
         if not self.supports_capability(CyncCapability.RGB_COLOR):
             raise UnsupportedCapabilityError()
 
-        return self.rgb
+        return self._rgb
+
+    def update_state(self, is_on: bool, brightness: int = None, color_temp: int = None, rgb: Tuple[int, int, int] = None, is_online: bool = None):
+        self._is_on = is_on
+        if brightness is not None:
+            self._brightness = brightness
+        if color_temp is not None:
+            self._color_temp = color_temp
+        if rgb is not None:
+            self._rgb = rgb
+        if is_online is not None:
+            self.is_online = is_online
 
     async def turn_on(self):
         if not self.supports_capability(CyncCapability.ON_OFF):

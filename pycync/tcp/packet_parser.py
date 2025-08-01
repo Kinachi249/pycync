@@ -1,10 +1,16 @@
 """Module responsible for parsing raw TCP packets received from the Cync server into a more usable format."""
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import struct
 
 from ..devices import device_storage
 from .packet import ParsedMessage, ParsedInnerFrame, MessageType, PipeCommandCode, generate_checksum
 from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
+
+if TYPE_CHECKING:
+    from pycync.devices import CyncDevice
 
 
 def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
@@ -55,14 +61,13 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
             info_length = struct.unpack(">H", packet[1:3])[0]
             packet = packet[3:info_length + 3]
             mesh_id = packet[0]
-            resolved_device_id = next(device.device_id for device in device_list if device.isolated_mesh_id == mesh_id)
+            try:
+                resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
+                resolved_device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
+            except StopIteration as ex:
+                raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
-            updated_device_data[resolved_device_id] = {
-                "is_on": packet[1],
-                "brightness": packet[2],
-                "color_mode": packet[3],
-                "rgb": (packet[4], packet[5], packet[6])
-            }
+            updated_device_data[resolved_device.device_id] = resolved_device
             packet = packet[info_length + 1:]
 
         return ParsedMessage(MessageType.SYNC.value, is_response, device_id, updated_device_data, version)
@@ -109,7 +114,7 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
     return ParsedInnerFrame(command_code, parsed_data)
 
 
-def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> dict[int, dict]:
+def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> dict[int, CyncDevice]:
     updated_device_data = {}
     if len(data_bytes) < 5:
         return updated_device_data
@@ -127,15 +132,13 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
         color_mode = device_data[16]
         rgb = (device_data[20], device_data[21], device_data[22])
 
-        device_id = next(device.device_id for device in device_list if device.isolated_mesh_id == mesh_id)
+        try:
+            resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
+            resolved_device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
+        except StopIteration as ex:
+            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
-        updated_device_data[device_id] = {
-            "is_online": is_online,
-            "is_on": is_on,
-            "brightness": brightness,
-            "color_mode": color_mode,
-            "rgb": rgb
-        }
+        updated_device_data[resolved_device.device_id] = resolved_device
         trimmed_bytes = trimmed_bytes[24:]
 
     return updated_device_data

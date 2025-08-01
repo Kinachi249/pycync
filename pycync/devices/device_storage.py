@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Any, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 from pycync.exceptions import CyncError
 
@@ -77,6 +77,6 @@ class UserHomes:
     to call when any of the home's devices are updated.
     """
 
-    def __init__(self, homes: list[CyncHome], on_data_update: Callable[[dict[str, Any]], None] = None):
+    def __init__(self, homes: list[CyncHome], on_data_update: Callable = None):
         self.homes = homes
         self.on_data_update = on_data_update

@@ -39,6 +39,11 @@ class Cync:
 
         return self._auth.user
 
+    async def refresh_credentials(self):
+        """Refresh user credentials."""
+        await self._auth.async_refresh_user_token()
+        return self.get_logged_in_user()
+
     def set_update_callback(self, update_callback: Callable):
         """
         Set the callback function that will be called when a device's state changes,

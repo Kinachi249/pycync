@@ -32,7 +32,7 @@ class TcpManager:
         self._client_closed = False
         self._login_acknowledged = False
         self._loop = None
-        self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True)
+        self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True, name=f"CyncTcpManager-{user.user_id}")
         self.transport = None
         self.protocol = None
         self.packet_queue = asyncio.Queue()
@@ -164,6 +164,8 @@ class TcpManager:
 class CyncTcpProtocol(asyncio.Protocol):
     """Protocol class for processing the Cync TCP packets."""
 
+    _LOGGER = logging.getLogger(__name__)
+
     def __init__(self, packet_queue: asyncio.Queue, user):
         self._transport = None
         self._packet_queue = packet_queue
@@ -184,6 +186,8 @@ class CyncTcpProtocol(asyncio.Protocol):
             except NotImplementedError:
                 # Simply ignore the packet for now
                 pass
+            except Exception as ex:
+                self._LOGGER.error("Unhandled exception while parsing packet: {}".format(str(ex)))
             finally:
                 data = data[packet_length + 5:]
 
