@@ -3,12 +3,11 @@ PyCync is a Python API library for interfacing with Cync by GE smart devices.
 
 The goal of this project is to make a generalized Cync library that will eventually span the gamut of Cync devices and features, while breaking the underlying protocol into more concrete implementations.
 
-## Pre-Release Warning
-If you have stumbled upon this repo and are reading this message on the main branch, this library has not yet reached a PyPI released state.  
-Use at your own risk. The library's API and code may change at any time.
-
 ## Disclaimers
 This library is still an early work in progress. As such, various devices and features may not yet be supported. However, work is ongoing to add features to get the library closer to feature parity with the app.
+
+The code has only been physically tested with Cync full color light bulbs and the dynamic effects LED strip, as those are the only light devices I own.  
+If you encounter issues with a specific device, I can do my best to fix them, but there may be a delay if I need to purchase the device to test with.  
 
 Currently, only Wi-Fi connected devices are supported. This means that you must have at least one Wi-Fi connected device in your home to utilize the library.  
 Note that if you have a Wi-Fi connected device that acts as a bridge for other Bluetooth-only devices that communicate via Bluetooth mesh, all of the devices should work.  
@@ -68,9 +67,9 @@ From here, you can filter devices as desired, and use the functions on the CyncD
 
 ## Setting a State Change Callback
 If you would like to specify a callback function to run whenever device states change, you may provide one to the Cync object.  
-The update_data is a JSON object. The outer key is the device ID. The object for each device contains the property name that changed, and the new value.
+The update_data parameter is a JSON object. The key is the device ID, and the value is the CyncDevice object with its new state set.
 ```
-def my_callback(update_data: dict[int, dict[str, Any]]):
+def my_callback(update_data: dict[int, CyncDevice]):
     # Handle updated data
     
 cync_api.set_update_callback(my_callback)
@@ -79,7 +78,7 @@ cync_api.set_update_callback(my_callback)
 ## Other Things to Note
 Only one connection can be established to the Cync server at a time per account.  
 This means that if you are using the library, and then you open the Cync app on your phone, your library's connection will be closed.  
-The server is the one that closes the connection, so unfortunately there is no getting around this. The library will attempt to reestablish the connection after 15 seconds.  
+The server is the one that closes the connection, so unfortunately there is no getting around this. The library will attempt to reestablish the connection after 10 seconds.  
 However, also note that once the library reestablishes the connection, your Cync app's connection will be closed. Love it.
 
 # Thanks
