@@ -1,5 +1,5 @@
 # PyCync
-PyCync is a Python API library for interfacing with Cync by GE smart devices.  
+PyCync is a Python API library for interfacing with Cync smart devices.  
 
 The goal of this project is to make a generalized Cync library that will eventually span the gamut of Cync devices and features, while breaking the underlying protocol into more concrete implementations.
 
