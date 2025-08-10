@@ -4,13 +4,14 @@ packets associated with device events.
 """
 
 from __future__ import annotations
+
+from asyncio import CancelledError
 from typing import TYPE_CHECKING
 
 import asyncio
 import logging
 import ssl
 import struct
-import threading
 from typing import Callable
 
 from pycync import User
@@ -29,57 +30,41 @@ class TcpManager:
     def __init__(self, user: User, client_callback: Callable):
         self._user = user
 
-        self._client_closed = False
+        self._packet_queue = asyncio.Queue()
+        self._client_callback = client_callback
+
         self._login_acknowledged = False
-        self._loop = None
-        self._client_thread = threading.Thread(target=self._open_thread_connection, daemon=True, name=f"CyncTcpManager-{user.user_id}")
-        self.transport = None
-        self.protocol = None
-        self.packet_queue = asyncio.Queue()
-        self.client_callback = client_callback
 
-        self._client_thread.start()
+        self._tcp_client_startup = asyncio.create_task(self._start_tcp_client())
+        self._process_packet_task = None
+        self._heartbeat_task = None
+        self._transport = None
+        self._protocol = None
 
-    def _open_thread_connection(self):
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._begin_client_loop())
+    async def _start_tcp_client(self, delay_seconds: int | None = None):
+        connected = False
 
-    async def _begin_client_loop(self):
-        while not self._client_closed:
+        if delay_seconds:
+            await asyncio.sleep(delay_seconds)
+
+        while not connected:
             try:
                 await self._establish_tcp_connection()
             except Exception:
                 self._LOGGER.error("Failed to connect to Cync server. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
             else:
-                process_packets = asyncio.create_task(self._process_packets(), name="Process Cync Packets")
-                heartbeat_task = asyncio.create_task(self._send_pings(), name="Send Heartbeats")
-                read_write_tasks = [process_packets, heartbeat_task]
-                try:
-                    done, pending = await asyncio.wait(read_write_tasks, return_when=asyncio.FIRST_EXCEPTION)
-                    for task in done:
-                        try:
-                            task.result()
-                        except ShuttingDown:
-                            self._LOGGER.debug("Cync client shutting down")
-                        except Exception as e:
-                            self._LOGGER.error(e)
-                    for task in pending:
-                        task.cancel()
-                except Exception as e:
-                    self._LOGGER.error(e)
-                finally:
-                    self.transport.close()
+                connected = True
 
-                if not self._client_closed:
-                    self._LOGGER.debug("Cync server connection closed. Reconnecting in 10 seconds...")
-                    await asyncio.sleep(10)
+                self._process_packet_task = asyncio.create_task(self._process_packets(), name="Process Cync Packets")
+                self._heartbeat_task = asyncio.create_task(self._send_pings(), name="Send Heartbeats")
+
+                self._process_packet_task.add_done_callback(self._read_task_finished)
 
     async def _establish_tcp_connection(self):
         context = ssl.create_default_context()
         try:
-            self.transport, self.protocol = await self._loop.create_connection(lambda: CyncTcpProtocol(self.packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
+            self._transport, self._protocol = await asyncio.get_event_loop().create_connection(lambda: CyncTcpProtocol(self._packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
         except Exception:
             # Normally this isn't something you'd want to do.
             # However, Cync's server has a 2+ year expired certificate and the common name doesn't match.
@@ -88,13 +73,13 @@ class TcpManager:
 
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
-            self.transport, self.protocol = await self._loop.create_connection(lambda: CyncTcpProtocol(self.packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
+            self._transport, self._protocol = await asyncio.get_event_loop().create_connection(lambda: CyncTcpProtocol(self._packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
 
     async def _process_packets(self):
         """Process parsed packets as they're added to the async queue."""
 
         while True:
-            parsed_packet = await self.packet_queue.get()
+            parsed_packet = await self._packet_queue.get()
 
             match parsed_packet.message_type:
                 case MessageType.LOGIN.value:
@@ -103,63 +88,72 @@ class TcpManager:
                     self._login_acknowledged = False
                     raise ConnectionClosedError
 
-            self.client_callback(parsed_packet)
+            await self._client_callback(parsed_packet)
+
+    def _read_task_finished(self, future):
+        self._transport.close()
+
+        try:
+            self._login_acknowledged = False
+            self._heartbeat_task.cancel()
+            future.result()
+        except CancelledError:
+            self._LOGGER.error("Cync client shutting down")
+        except Exception as e:
+            self._LOGGER.error("Cync server connection closed. Reconnecting in 10 seconds...")
+            asyncio.create_task(self._start_tcp_client(10))
+
+    async def _send_request(self, request):
+        while not self._login_acknowledged:
+            await asyncio.sleep(1)
+            self._LOGGER.debug("Awaiting login acknowledge before sending request.")
+        self._transport.write(request)
 
     async def _send_pings(self):
         """Periodically send a ping to the Cync server as a connection heartbeat."""
 
-        while not self._client_closed:
+        while True:
             await asyncio.sleep(20)
-            self._loop.call_soon_threadsafe(self._send_request, bytes.fromhex('d300000000'))
-        raise ShuttingDown
+            await self._send_request(bytes.fromhex('d300000000'))
 
-    def probe_devices(self, devices: list[CyncDevice]):
+    async def probe_devices(self, devices: list[CyncDevice]):
         """Probe all account devices to see which ones are responsive over Wi-Fi."""
 
         for device in devices:
             probe_device_packet = packet_builder.build_probe_request_packet(device.device_id)
-            self._loop.call_soon_threadsafe(self._send_request, probe_device_packet)
+            await self._send_request(probe_device_packet)
 
-    def shut_down(self):
+    async def shut_down(self):
         """Shut down the Cync client connection."""
 
-        self._client_closed = True
-        self._loop.call_soon_threadsafe(self._send_request, bytes.fromhex('e30000000103'))
+        await self._send_request(bytes.fromhex('e30000000103'))
+        self._process_packet_task.cancel()
 
-    def update_mesh_devices(self, hub_devices: list[CyncDevice]):
+    async def update_mesh_devices(self, hub_devices: list[CyncDevice]):
         """Get new device state."""
         for hub_device in hub_devices:
             state_request_packet = packet_builder.build_state_query_request_packet(hub_device.device_id)
-            self._loop.call_soon_threadsafe(self._send_request, state_request_packet)
+            await self._send_request(state_request_packet)
 
-    def set_power_state(self, hub_device: CyncDevice, mesh_id: int, is_on: bool):
+    async def set_power_state(self, hub_device: CyncDevice, mesh_id: int, is_on: bool):
         """Set device(s) to either on or off."""
         request_packet = packet_builder.build_power_state_request_packet(hub_device.device_id, mesh_id, is_on)
-        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+        await self._send_request(request_packet)
 
-    def set_brightness(self, hub_device: CyncDevice, mesh_id: int, brightness: int):
+    async def set_brightness(self, hub_device: CyncDevice, mesh_id: int, brightness: int):
         """Sets the brightness."""
         request_packet = packet_builder.build_brightness_request_packet(hub_device.device_id, mesh_id, brightness)
-        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+        await self._send_request(request_packet)
 
-    def set_color_temp(self, hub_device: CyncDevice, mesh_id: int, color_temp: int):
+    async def set_color_temp(self, hub_device: CyncDevice, mesh_id: int, color_temp: int):
         """Sets the color temperature."""
         request_packet = packet_builder.build_color_temp_request_packet(hub_device.device_id, mesh_id, color_temp)
-        self._loop.call_soon_threadsafe(self._send_request, request_packet)
+        await self._send_request(request_packet)
 
-    def set_rgb(self, hub_device: CyncDevice, mesh_id: int, rgb: tuple[int, int, int]):
+    async def set_rgb(self, hub_device: CyncDevice, mesh_id: int, rgb: tuple[int, int, int]):
         """Sets the RGB color."""
         request_packet = packet_builder.build_rgb_request_packet(hub_device.device_id, mesh_id, rgb)
-        self._loop.call_soon_threadsafe(self._send_request, request_packet)
-
-    def _send_request(self, request):
-        async def send():
-            while not self._login_acknowledged:
-                await asyncio.sleep(1)
-                self._LOGGER.debug("Awaiting login acknowledge before sending request.")
-            self.transport.write(request)
-
-        self._loop.create_task(send())
+        await self._send_request(request_packet)
 
 class CyncTcpProtocol(asyncio.Protocol):
     """Protocol class for processing the Cync TCP packets."""
@@ -197,6 +191,3 @@ class CyncTcpProtocol(asyncio.Protocol):
 
 class ConnectionClosedError(Exception):
     """Connection closed error"""
-
-class ShuttingDown(Exception):
-    """Cync client shutting down"""

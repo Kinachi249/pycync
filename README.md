@@ -67,7 +67,8 @@ From here, you can filter devices as desired, and use the functions on the CyncD
 
 ## Setting a State Change Callback
 If you would like to specify a callback function to run whenever device states change, you may provide one to the Cync object.  
-The update_data parameter is a JSON object. The key is the device ID, and the value is the CyncDevice object with its new state set.
+The update_data parameter is a JSON object. The key is the device ID, and the value is the CyncDevice object with its new state set.  
+The callback function may be either synchronous or asynchronous.
 ```
 def my_callback(update_data: dict[int, CyncDevice]):
     # Handle updated data
