@@ -34,10 +34,10 @@ class CommandClient:
     def start_connection(self):
         self._tcp_manager = TcpManager(self._user, self.on_message_received)
 
-    def on_message_received(self, parsed_message: ParsedMessage):
+    async def on_message_received(self, parsed_message: ParsedMessage):
         match parsed_message.message_type:
             case MessageType.LOGIN.value:
-                self.probe_devices()
+                await self.probe_devices()
             case MessageType.PROBE.value if parsed_message.version != 0:
                 devices_in_home = device_storage.get_associated_home_devices(self._user.user_id,
                                                                              parsed_message.device_id)
@@ -45,17 +45,13 @@ class CommandClient:
                 device.set_wifi_connected(True)
                 self._device_statuses_updated = True
             case MessageType.SYNC.value:
-                callback = device_storage.get_user_device_callback(self._user.user_id)
-                if callback is not None:
-                    callback(parsed_message.data)
+                await self._send_update_to_listener(parsed_message.data)
             case MessageType.PIPE.value:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
-                    callback = device_storage.get_user_device_callback(self._user.user_id)
-                    if callback is not None:
-                        callback(parsed_message.data)
+                    await self._send_update_to_listener(parsed_message.data)
 
-    def probe_devices(self):
-        self._tcp_manager.probe_devices(device_storage.get_flattened_devices(self._user.user_id))
+    async def probe_devices(self):
+        await self._tcp_manager.probe_devices(device_storage.get_flattened_devices(self._user.user_id))
 
     async def update_mesh_devices(self):
         """Get new device state."""
@@ -66,13 +62,13 @@ class CommandClient:
             hub_device = await self._fetch_hub_device(home)
             hub_devices.append(hub_device)
 
-        self._tcp_manager.update_mesh_devices(hub_devices)
+        await self._tcp_manager.update_mesh_devices(hub_devices)
 
     async def set_power_state(self, controllable: CyncControllable, is_on: bool):
         """Set device(s) to either on or off."""
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
-        self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, is_on)
+        await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, is_on)
 
     async def set_brightness(self, controllable: CyncControllable, brightness: int):
         """Sets the brightness. Must be between 0 and 100 inclusive."""
@@ -81,7 +77,7 @@ class CommandClient:
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
-        self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
+        await self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
 
     async def set_color_temp(self, controllable: CyncControllable, color_temp: int):
         """
@@ -93,7 +89,7 @@ class CommandClient:
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
-        self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
+        await self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
 
     async def set_rgb(self, controllable: CyncControllable, rgb: tuple[int, int, int]):
         """Sets the RGB color. Each color must be between 0 and 255 inclusive."""
@@ -102,10 +98,18 @@ class CommandClient:
 
         hub_device = await self._fetch_hub_device(controllable.parent_home)
 
-        self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
+        await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 
-    def shut_down(self):
-        self._tcp_manager.shut_down()
+    async def shut_down(self):
+        await self._tcp_manager.shut_down()
+
+    async def _send_update_to_listener(self, updated_data):
+        callback = device_storage.get_user_device_callback(self._user.user_id)
+        if callback is not None:
+            if asyncio.iscoroutinefunction(callback):
+                await callback(updated_data)
+            else:
+                callback(updated_data)
 
     async def _fetch_hub_device(self, home: CyncHome) -> CyncDevice:
         """

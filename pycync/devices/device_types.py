@@ -11,6 +11,7 @@ List last updated from Android app version 6.20.0.54634-60b11b1f5
 
 from enum import Enum
 
+
 class DeviceType(Enum):
     LIGHT = "Light"
     INDOOR_LIGHT_STRIP = "IndoorLightStrip"
@@ -32,6 +33,13 @@ class DeviceType(Enum):
     THERMOSTAT = "Thermostat"
     CAMERA = "Camera"
     UNKNOWN = "Unknown"
+
+    @classmethod
+    def is_light(cls, device_type_code: int) -> bool:
+        resolved_type = DEVICE_TYPES.get(device_type_code, DeviceType.UNKNOWN)
+        return resolved_type in {cls.LIGHT, cls.INDOOR_LIGHT_STRIP, cls.OUTDOOR_LIGHT_STRIP, cls.NEON_LIGHT_STRIP,
+                                 cls.CAFE_STRING_LIGHTS, cls.DOWNLIGHT, cls.UNDERCABINET_FIXTURES, cls.LIGHT_TILE}
+
 
 DEVICE_TYPES = {
     # FullColorStripGen1Standalone

@@ -112,6 +112,6 @@ class Cync:
 
         device_storage.set_user_homes(self._auth.user.user_id, homes)
 
-    def shut_down(self):
+    async def shut_down(self):
         """Shut down the command client instance and close its associated connections."""
-        self._command_client.shut_down()
+        await self._command_client.shut_down()

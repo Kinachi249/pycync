@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import struct
 
 from ..devices import device_storage
+from ..devices.device_types import DeviceType
 from .packet import ParsedMessage, ParsedInnerFrame, MessageType, PipeCommandCode, generate_checksum
 from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
 
@@ -63,7 +64,8 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
             mesh_id = packet[0]
             try:
                 resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-                resolved_device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
+                if DeviceType.is_light(resolved_device.device_type):
+                    resolved_device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
             except StopIteration as ex:
                 raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
@@ -134,7 +136,8 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
         try:
             resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-            resolved_device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
+            if DeviceType.is_light(resolved_device.device_type):
+                resolved_device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
         except StopIteration as ex:
             raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
