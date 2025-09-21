@@ -98,7 +98,7 @@ class TcpManager:
             self._heartbeat_task.cancel()
             future.result()
         except CancelledError:
-            self._LOGGER.error("Cync client shutting down")
+            self._LOGGER.info("Cync client shutting down")
         except Exception as e:
             self._LOGGER.error("Cync server connection closed. Reconnecting in 10 seconds...")
             asyncio.create_task(self._start_tcp_client(10))

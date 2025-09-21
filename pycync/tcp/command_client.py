@@ -48,6 +48,9 @@ class CommandClient:
                 await self._send_update_to_listener(parsed_message.data)
             case MessageType.PIPE.value:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
+                    updated_devices: dict[int, CyncDevice] = parsed_message.data
+                    for device in device_storage.get_flattened_devices(self._user.user_id):
+                        device.is_online = device.device_id in updated_devices
                     await self._send_update_to_listener(parsed_message.data)
 
     async def probe_devices(self):
@@ -103,7 +106,7 @@ class CommandClient:
     async def shut_down(self):
         await self._tcp_manager.shut_down()
 
-    async def _send_update_to_listener(self, updated_data):
+    async def _send_update_to_listener(self, updated_data: dict[int, CyncDevice]):
         callback = device_storage.get_user_device_callback(self._user.user_id)
         if callback is not None:
             if asyncio.iscoroutinefunction(callback):
