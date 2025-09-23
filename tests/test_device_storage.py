@@ -2,6 +2,7 @@ import pytest
 
 from pycync import CyncHome, CyncDevice, CyncGroup, CyncRoom
 from pycync.devices import device_storage
+from pycync.devices.device_types import DeviceType
 from pycync.exceptions import CyncError
 from tests import TEST_USER_ID
 
@@ -9,22 +10,22 @@ from tests import TEST_USER_ID
 home_1 = CyncHome("Home 1", 1234, [], [])
 home_2 = CyncHome("Home 2", 2345, [], [])
 
-home_1_room_1_group_1_device_1 = CyncDevice({"id": 12}, {"deviceID": 2, "deviceType": 224}, home_1, None, True)
-home_1_room_1_group_1_device_2 = CyncDevice({"id": 23}, {"deviceID": 2, "deviceType": 224}, home_1, None, True)
-home_1_room_1_group_1 = CyncGroup("Group 1", 1, home_1, [home_1_room_1_group_1_device_1, home_1_room_1_group_1_device_2], None)
+home_1_room_1_group_1_device_1 = CyncDevice(True, True, 12, 2, 1234, "Device 1", 224, DeviceType.LIGHT, "123456ABCDEF", "ID1", "Code")
+home_1_room_1_group_1_device_2 = CyncDevice(True, True, 23, 3, 1234, "Device 2", 224, DeviceType.LIGHT, "223456ABCDEF", "ID1", "Code")
+home_1_room_1_group_1 = CyncGroup("Group 1", 1, 1234, [home_1_room_1_group_1_device_1, home_1_room_1_group_1_device_2])
 
-home_1_room_1_device_1 = CyncDevice({"id": 34}, {"deviceID": 2, "deviceType": 224}, home_1, None, True)
-home_1_room_1 = CyncRoom("Room 1", 2, home_1, [home_1_room_1_group_1], [home_1_room_1_device_1], None)
+home_1_room_1_device_1 = CyncDevice(True, True, 34, 4, 1234, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1", "Code")
+home_1_room_1 = CyncRoom("Room 1", 2, 1234, [home_1_room_1_group_1], [home_1_room_1_device_1])
 
-home_1_room_2_device_1 = CyncDevice({"id": 45}, {"deviceID": 2, "deviceType": 224}, home_1, None, True)
-home_1_room_2 = CyncRoom("Room 2", 3, home_1, [], [home_1_room_2_device_1], None)
+home_1_room_2_device_1 = CyncDevice(True, True, 45, 5, 1234, "Device 4", 224, DeviceType.LIGHT, "423456ABCDEF", "ID1", "Code")
+home_1_room_2 = CyncRoom("Room 2", 3, 1234, [], [home_1_room_2_device_1], None)
 
-home_2_room_1_device_1 = CyncDevice({"id": 56}, {"deviceID": 2, "deviceType": 224}, home_2, None, True)
-home_2_room_1_device_2 = CyncDevice({"id": 67}, {"deviceID": 2, "deviceType": 224}, home_2, None, True)
-home_2_room_1 = CyncRoom("Room 1", 4, home_2, [], [home_2_room_1_device_1, home_2_room_1_device_2], None)
+home_2_room_1_device_1 = CyncDevice(True, True, 56, 6, 2345, "Device 5", 224, DeviceType.LIGHT, "523456ABCDEF", "ID1", "Code")
+home_2_room_1_device_2 = CyncDevice(True, True, 67, 7, 2345, "Device 6", 224, DeviceType.LIGHT, "623456ABCDEF", "ID1", "Code")
+home_2_room_1 = CyncRoom("Room 1", 4, 2345, [], [home_2_room_1_device_1, home_2_room_1_device_2], None)
 
-home_2_device_1 = CyncDevice({"id": 78}, {"deviceID": 2, "deviceType": 224}, home_2, None, True)
-home_2_device_2 = CyncDevice({"id": 89}, {"deviceID": 2, "deviceType": 224}, home_2, None, True)
+home_2_device_1 = CyncDevice(True, True, 78, 8, 2345, "Device 7", 224, DeviceType.LIGHT, "723456ABCDEF", "ID1", "Code")
+home_2_device_2 = CyncDevice(True, True, 89, 9, 2345, "Device 8", 224, DeviceType.LIGHT, "823456ABCDEF", "ID1", "Code")
 
 home_1.rooms = [home_1_room_1, home_1_room_2]
 home_2.rooms = [home_2_room_1]

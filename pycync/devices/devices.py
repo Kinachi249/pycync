@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Tuple, Any, TYPE_CHECKING
+from typing import Tuple, Any
 
 from .controllable import CyncControllable
 from pycync.exceptions import UnsupportedCapabilityError
@@ -10,16 +10,21 @@ from pycync.tcp.command_client import CommandClient
 from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
 from pycync.devices.device_types import DEVICE_TYPES, DeviceType
 
-if TYPE_CHECKING:
-    from .groups import CyncHome
 
-
-def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
+def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], home_id: int,
                   command_client: CommandClient, wifi_connected: bool = False,
                   device_datapoint_data: dict[str, Any] = None) -> CyncDevice:
     device_type_id = mesh_device_info["deviceType"]
 
+    is_online = device_info.get("is_online", False)
+    wifi_connected = wifi_connected
+    device_id = device_info.get("id")
+    mesh_device_id = mesh_device_info.get("deviceID")
+    name = mesh_device_info.get("displayName")
     device_type = DEVICE_TYPES.get(device_type_id, DeviceType.UNKNOWN)
+    mac = device_info.get("mac")
+    product_id = device_info.get("product_id")
+    authorize_code = device_info.get("authorize_code")
 
     match device_type:
         case (DeviceType.LIGHT |
@@ -31,34 +36,129 @@ def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any],
               DeviceType.DOWNLIGHT |
               DeviceType.UNDERCABINET_FIXTURES |
               DeviceType.LIGHT_TILE):
-            return CyncLight(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
-                             device_datapoint_data)
+            return CyncLight(
+                is_online,
+                wifi_connected,
+                device_id,
+                mesh_device_id,
+                home_id,
+                name,
+                device_type_id,
+                device_type,
+                mac,
+                product_id,
+                authorize_code,
+                datapoints=device_datapoint_data,
+                command_client=command_client)
         case _:
-            return CyncDevice(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
-                              device_datapoint_data)
+            return CyncDevice(
+                is_online,
+                wifi_connected,
+                device_id,
+                mesh_device_id,
+                home_id,
+                name,
+                device_type_id,
+                device_type,
+                mac,
+                product_id,
+                authorize_code,
+                device_datapoint_data,
+                command_client
+            )
 
 
 class CyncDevice(CyncControllable):
     """Definition for a generic Cync device, with the common attributes shared between device types."""
 
-    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
-                 command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
-        if device_datapoint_data is None:
-            device_datapoint_data = {}
-        self.is_online = device_info.get("is_online", False)
+    def __init__(self,
+                 is_online: bool,
+                 wifi_connected: bool,
+                 device_id: int,
+                 mesh_device_id: int,
+                 home_id: int,
+                 name: str,
+                 device_type_id: int,
+                 device_type: DeviceType,
+                 mac_address: str,
+                 product_id: str,
+                 authorize_code: str,
+                 datapoints: dict[str, Any] = None,
+                 command_client: CommandClient = None,
+                 ):
+        if datapoints is None:
+            datapoints = {}
+
+        self.is_online = is_online
         self.wifi_connected = wifi_connected
-        self.device_id = device_info.get("id")
-        self.mesh_device_id = mesh_device_info.get("deviceID")
-        self.isolated_mesh_id = self.mesh_device_id % parent_home.home_id
-        self.parent_home = parent_home
-        self._name = mesh_device_info.get("displayName")
-        self.device_type = mesh_device_info.get("deviceType", DeviceType.UNKNOWN.value)
-        self.mac = device_info.get("mac")
-        self.product_id = device_info.get("product_id")
-        self.authorize_code = device_info.get("authorize_code")
-        self.datapoints = device_datapoint_data
-        self._capabilities = DEVICE_CAPABILITIES.get(self.device_type, {})
+        self.device_id = device_id
+        self.mesh_device_id = mesh_device_id
+        self.parent_home_id = home_id
+        self.isolated_mesh_id = self.mesh_device_id % self.parent_home_id
+        self._name = name
+        self.device_type = device_type
+        self.mac = mac_address
+        self.product_id = product_id
+        self.authorize_code = authorize_code
+        self.datapoints = datapoints
+        self.device_type_id = device_type_id
+        self._capabilities = DEVICE_CAPABILITIES.get(self.device_type_id, {})
         self._command_client = command_client
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CyncDevice:
+        is_online = data.get("is_online")
+        wifi_connected = data.get("wifi_connected")
+        device_id = data.get("device_id")
+        mesh_device_id = data.get("mesh_device_id")
+        home_id = data.get("home_id")
+        name = data.get("name")
+        device_type_id = data.get("device_type_id")
+        device_type = DeviceType[data.get("device_type")]
+        mac_address = data.get("mac_address")
+        product_id = data.get("product_id")
+        authorize_code = data.get("authorize_code")
+
+        match device_type:
+            case (DeviceType.LIGHT |
+                  DeviceType.INDOOR_LIGHT_STRIP |
+                  DeviceType.OUTDOOR_LIGHT_STRIP |
+                  DeviceType.NEON_LIGHT_STRIP |
+                  DeviceType.OUTDOOR_NEON_LIGHT_STRIP |
+                  DeviceType.CAFE_STRING_LIGHTS |
+                  DeviceType.DOWNLIGHT |
+                  DeviceType.UNDERCABINET_FIXTURES |
+                  DeviceType.LIGHT_TILE):
+                return CyncLight(
+                    is_online,
+                    wifi_connected,
+                    device_id,
+                    mesh_device_id,
+                    home_id,
+                    name,
+                    device_type_id,
+                    device_type,
+                    mac_address,
+                    product_id,
+                    authorize_code,
+                    data.get("is_on", False),
+                    data.get("brightness", 0),
+                    data.get("color_temp", 0),
+                    data.get("rgb", (0, 0, 0)))
+            case _:
+                return CyncDevice(
+                    is_online,
+                    wifi_connected,
+                    device_id,
+                    mesh_device_id,
+                    home_id,
+                    name,
+                    device_type_id,
+                    device_type,
+                    mac_address,
+                    product_id,
+                    authorize_code
+                )
 
     def set_wifi_connected(self, wifi_connected: bool):
         self.wifi_connected = wifi_connected
@@ -81,7 +181,7 @@ class CyncDevice(CyncControllable):
 
     @property
     def unique_id(self) -> str:
-        return f"{self.parent_home.home_id}-{self.device_id}"
+        return f"{self.parent_home_id}-{self.device_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
@@ -90,15 +190,42 @@ class CyncDevice(CyncControllable):
 class CyncLight(CyncDevice):
     """Class for representing Cync lights."""
 
-    def __init__(self, device_info: dict[str, Any], mesh_device_info: dict[str, Any], parent_home: CyncHome,
-                 command_client: CommandClient, wifi_connected: bool, device_datapoint_data: dict[str, Any] = None):
-        super().__init__(device_info, mesh_device_info, parent_home, command_client, wifi_connected,
-                         device_datapoint_data)
+    def __init__(self,
+                 is_online: bool,
+                 wifi_connected: bool,
+                 device_id: int,
+                 mesh_device_id: int,
+                 home_id: int,
+                 name: str,
+                 device_type_id: int,
+                 device_type: DeviceType,
+                 mac_address: str,
+                 product_id: str,
+                 authorize_code: str,
+                 is_on: bool = False,
+                 brightness: int = 0,
+                 color_temp: int = 0,
+                 rgb: (int, int, int) = (0, 0, 0),
+                 datapoints: dict[str, Any] = None,
+                 command_client: CommandClient = None, ):
+        super().__init__(is_online,
+                         wifi_connected,
+                         device_id,
+                         mesh_device_id,
+                         home_id,
+                         name,
+                         device_type_id,
+                         device_type,
+                         mac_address,
+                         product_id,
+                         authorize_code,
+                         datapoints,
+                         command_client)
 
-        self._is_on = False
-        self._brightness = 0
-        self._color_temp = 0
-        self._rgb = 0, 0, 0
+        self._is_on = is_on
+        self._brightness = brightness
+        self._color_temp = color_temp
+        self._rgb = rgb
 
     @property
     def is_on(self) -> bool:
@@ -144,7 +271,8 @@ class CyncLight(CyncDevice):
 
         return self._rgb
 
-    def update_state(self, is_on: bool, brightness: int = None, color_temp: int = None, rgb: Tuple[int, int, int] = None, is_online: bool = None):
+    def update_state(self, is_on: bool, brightness: int = None, color_temp: int = None,
+                     rgb: Tuple[int, int, int] = None, is_online: bool = None):
         self._is_on = is_on
         if brightness is not None:
             self._brightness = brightness

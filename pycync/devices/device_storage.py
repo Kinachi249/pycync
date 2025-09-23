@@ -16,6 +16,17 @@ def get_user_homes(user_id: int):
     return current_homes.homes
 
 
+def get_home_by_id(user_id: int, home_id: int):
+    """Fetch a home by the user and home ID."""
+
+    user_homes = _user_homes.get(user_id, UserHomes([])).homes
+
+    found_home = next((home for home in user_homes if home.home_id == home_id), None)
+    if found_home is None:
+        raise CyncError(f"Home ID {home_id} not found on user account {user_id}.")
+    return found_home
+
+
 def set_user_homes(user_id: int, homes: list[CyncHome]):
     """Set a list of configured homes for the user."""
 

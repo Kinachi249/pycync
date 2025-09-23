@@ -51,7 +51,7 @@ def _parse_probe_packet(packet: bytearray, is_response, version) -> ParsedMessag
 def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
-    device_type = next(device.device_type for device in device_list if device.device_id == device_id)
+    device_type = next(device.device_type_id for device in device_list if device.device_id == device_id)
     is_mesh_device = CyncCapability.SIG_MESH in DEVICE_CAPABILITIES[device_type]
 
     updated_device_data = {}
@@ -63,8 +63,8 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
             packet = packet[3:info_length + 3]
             mesh_id = packet[0]
             try:
-                resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-                if DeviceType.is_light(resolved_device.device_type):
+                resolved_device: CyncDevice = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
+                if DeviceType.is_light(resolved_device.device_type_id):
                     resolved_device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
             except StopIteration as ex:
                 raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
@@ -135,8 +135,8 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
         rgb = (device_data[20], device_data[21], device_data[22])
 
         try:
-            resolved_device = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-            if DeviceType.is_light(resolved_device.device_type):
+            resolved_device: CyncDevice = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
+            if DeviceType.is_light(resolved_device.device_type_id):
                 resolved_device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
         except StopIteration as ex:
             raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex

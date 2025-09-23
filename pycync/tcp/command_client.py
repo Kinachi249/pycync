@@ -69,7 +69,8 @@ class CommandClient:
 
     async def set_power_state(self, controllable: CyncControllable, is_on: bool):
         """Set device(s) to either on or off."""
-        hub_device = await self._fetch_hub_device(controllable.parent_home)
+        associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, is_on)
 
@@ -78,7 +79,8 @@ class CommandClient:
         if brightness < 0 or brightness > 100:
             raise CyncError("Brightness must be between 0 and 100 inclusive")
 
-        hub_device = await self._fetch_hub_device(controllable.parent_home)
+        associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
 
@@ -90,7 +92,8 @@ class CommandClient:
         if color_temp < 1 or color_temp > 100:
             raise CyncError("Color temperature must be between 1 and 100 inclusive.")
 
-        hub_device = await self._fetch_hub_device(controllable.parent_home)
+        associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
 
@@ -99,7 +102,8 @@ class CommandClient:
         if rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255:
             raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
-        hub_device = await self._fetch_hub_device(controllable.parent_home)
+        associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 

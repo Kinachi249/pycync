@@ -29,6 +29,15 @@ class CyncHome:
         self.rooms = rooms
         self.global_devices = global_devices
 
+    @classmethod
+    def from_dict(cls, data: dict) -> CyncHome:
+        name = data.get("name")
+        home_id = data.get("home_id")
+        rooms = [CyncRoom.from_dict(room) for room in data.get("rooms")]
+        global_devices = [CyncDevice.from_dict(device) for device in data.get("global_devices")]
+
+        return CyncHome(name, home_id, rooms, global_devices)
+
     def contains_device_id(self, device_id: int) -> bool:
         """
         Determines whether a given device ID exists in this home.
@@ -58,14 +67,24 @@ class CyncHome:
 class CyncRoom(GroupedCyncDevices, CyncControllable):
     """Represents a "room" in the Cync app."""
 
-    def __init__(self, name: str, room_id: int, parent_home: CyncHome, groups: list[CyncGroup],
-                 devices: list[CyncDevice], command_client: CommandClient):
+    def __init__(self, name: str, room_id: int, home_id: int, groups: list[CyncGroup],
+                 devices: list[CyncDevice], command_client: CommandClient = None):
         self._name = name
         self.room_id = room_id
-        self.parent_home = parent_home
+        self.parent_home_id = home_id
         self.groups = groups
         self.devices = devices
         self._command_client = command_client
+
+    @classmethod
+    def from_dict(cls, data: dict) -> CyncRoom:
+        name = data.get("name")
+        room_id = data.get("room_id")
+        home_id = data.get("home_id")
+        groups = [CyncGroup.from_dict(group) for group in data.get("groups")]
+        devices = [CyncDevice.from_dict(device) for device in data.get("devices")]
+
+        return CyncRoom(name, room_id, home_id, groups, devices)
 
     @property
     def capabilities(self) -> frozenset[CyncCapability]:
@@ -84,7 +103,7 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
 
     @property
     def unique_id(self) -> str:
-        return f"{self.parent_home.home_id}-{self.room_id}"
+        return f"{self.parent_home_id}-{self.room_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
@@ -127,13 +146,22 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
 class CyncGroup(GroupedCyncDevices, CyncControllable):
     """Represents a "group" in the Cync app."""
 
-    def __init__(self, name: str, group_id: int, parent_home: CyncHome, devices: list[CyncDevice],
-                 command_client: CommandClient):
+    def __init__(self, name: str, group_id: int, home_id: int, devices: list[CyncDevice],
+                 command_client: CommandClient = None):
         self._name = name
         self.group_id = group_id
-        self.parent_home = parent_home
+        self.parent_home_id = home_id
         self.devices = devices
         self._command_client = command_client
+
+    @classmethod
+    def from_dict(cls, data: dict) -> CyncGroup:
+        name = data.get("name")
+        group_id = data.get("group_id")
+        home_id = data.get("home_id")
+        devices = [CyncDevice.from_dict(device) for device in data.get("devices")]
+
+        return CyncGroup(name, group_id, home_id, devices)
 
     @property
     def capabilities(self) -> frozenset[CyncCapability]:
@@ -150,7 +178,7 @@ class CyncGroup(GroupedCyncDevices, CyncControllable):
 
     @property
     def unique_id(self) -> str:
-        return f"{self.parent_home.home_id}-{self.group_id}"
+        return f"{self.parent_home_id}-{self.group_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities

@@ -1,19 +1,15 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from abc import abstractmethod
 from typing import Protocol
 
 from pycync.devices.capabilities import CyncCapability
 
-if TYPE_CHECKING:
-    from pycync.devices.groups import CyncHome
-
 
 class CyncControllable(Protocol):
     """Protocol describing any Cync entity that can be controlled by the user."""
 
-    parent_home: CyncHome
+    parent_home_id: int
 
     @property
     @abstractmethod

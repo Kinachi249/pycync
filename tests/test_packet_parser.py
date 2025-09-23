@@ -1,6 +1,7 @@
 import pytest
 
 from pycync import CyncLight
+from pycync.devices.device_types import DeviceType
 from pycync.devices.groups import CyncHome
 from pycync.tcp import packet_parser
 from pycync.tcp.packet import MessageType, PipeCommandCode
@@ -33,12 +34,11 @@ def test_probe_packet():
     assert parsed_message.data == expected_data
 
 def test_pipe_packet(mocker):
-    device_1234 = CyncLight({"id": 1234}, {"deviceID": 4}, TEST_HOME, None, True)
-    device_2345 = CyncLight({"id": 2345}, {"deviceID": 7}, TEST_HOME, None, True)
-    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2}, TEST_HOME, None, True)
-    device_4567 = CyncLight({"id": 4567}, {"deviceID": 232}, TEST_HOME, None, True)
-    device_5678 = CyncLight({"id": 5678}, {"deviceID": 30}, TEST_HOME, None, True)
-
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 224, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 224, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
+    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 224, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
+    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 224, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_1234,
@@ -68,7 +68,7 @@ def test_pipe_packet(mocker):
     assert parsed_message.data == expected_device_data
 
 def test_thermostat_sync_packet(mocker):
-    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_3456
@@ -81,7 +81,7 @@ def test_thermostat_sync_packet(mocker):
         packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
 def test_light_sync_packet(mocker):
-    device_2345 = CyncLight({"id": 2345}, {"deviceID": 7, "deviceType": 137}, TEST_HOME, None, True)
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_2345
@@ -103,7 +103,7 @@ def test_light_sync_packet(mocker):
     assert parsed_message.data == expected_device_data
 
 def test_bad_checksum(mocker):
-    device_3456 = CyncLight({"id": 3456}, {"deviceID": 2, "deviceType": 224}, TEST_HOME, None, True)
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_3456

@@ -82,7 +82,7 @@ class Cync:
                 mesh_devices = mesh_device_info["bulbsArray"]
                 for mesh_device in mesh_devices:
                     matching_device = next(device for device in device_info if device["id"] == mesh_device["switchID"])
-                    created_device = create_device(matching_device, mesh_device, home, self._command_client)
+                    created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
 
                     home_devices.append(created_device)
 
