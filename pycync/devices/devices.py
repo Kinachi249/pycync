@@ -14,7 +14,7 @@ from pycync.devices.device_types import DEVICE_TYPES, DeviceType
 def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], home_id: int,
                   command_client: CommandClient, wifi_connected: bool = False,
                   device_datapoint_data: dict[str, Any] = None) -> CyncDevice:
-    device_type_id = mesh_device_info["deviceType"]
+    device_type_id = mesh_device_info.get("deviceType")
 
     is_online = device_info.get("is_online", False)
     wifi_connected = wifi_connected

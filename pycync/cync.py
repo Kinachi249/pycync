@@ -64,10 +64,10 @@ class Cync:
         return device_storage.get_user_homes(self._auth.user.user_id)
 
     async def refresh_home_info(self):
-        """Refresh all nested home information for this account, and update the device storage.."""
+        """Refresh all nested home information for this account, and update the device storage."""
         device_info = await self._auth._send_user_request(
             f"{REST_API_BASE_URL}/v2/user/{self._auth.user.user_id}/subscribe/devices")
-        home_entries = [device for device in device_info if device["source"] == 5]
+        home_entries = [device for device in device_info if device.get("source") == 5]
         homes = []
 
         for home_json in home_entries:
@@ -78,10 +78,12 @@ class Cync:
 
             mesh_device_info = await self._auth._send_user_request(
                 f"{REST_API_BASE_URL}/v2/product/{home_json["product_id"]}/device/{home_json["id"]}/property")
-            if "bulbsArray" in mesh_device_info:
-                mesh_devices = mesh_device_info["bulbsArray"]
-                for mesh_device in mesh_devices:
-                    matching_device = next(device for device in device_info if device["id"] == mesh_device["switchID"])
+            mesh_devices = [mesh_device for mesh_device in mesh_device_info.get("bulbsArray", []) if
+                            "switchID" in mesh_device]
+            for mesh_device in mesh_devices:
+                matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
+                                       None)
+                if matching_device is not None:
                     created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
 
                     home_devices.append(created_device)
@@ -89,20 +91,22 @@ class Cync:
             room_json = []
             group_json = []
             if "groupsArray" in mesh_device_info:
-                room_json = [group for group in mesh_device_info["groupsArray"] if group["isSubgroup"] == False]
-                group_json = [group for group in mesh_device_info["groupsArray"] if group["isSubgroup"] == True]
+                room_json = [group for group in mesh_device_info["groupsArray"] if group.get("isSubgroup") == False]
+                group_json = [group for group in mesh_device_info["groupsArray"] if group.get("isSubgroup") == True]
 
             for group in group_json:
                 group_devices = [device for device in home_devices if
                                  device.isolated_mesh_id in group.get("deviceIDArray", [])]
                 groups.append(
-                    CyncGroup(group["displayName"], group["groupID"], home, group_devices, self._command_client))
+                    CyncGroup(group["displayName"], group["groupID"], home.home_id, group_devices,
+                              self._command_client))
                 home_devices = [device for device in home_devices if device not in group_devices]
 
             for room in room_json:
-                room_devices = [device for device in home_devices if device.isolated_mesh_id in room["deviceIDArray"]]
+                room_devices = [device for device in home_devices if
+                                device.isolated_mesh_id in room.get("deviceIDArray", [])]
                 room_groups = [group for group in groups if group.group_id in room.get("subgroupIDArray", [])]
-                rooms.append(CyncRoom(room["displayName"], room["groupID"], home, room_groups, room_devices,
+                rooms.append(CyncRoom(room["displayName"], room["groupID"], home.home_id, room_groups, room_devices,
                                       self._command_client))
                 home_devices = [device for device in home_devices if device not in room_devices]
 

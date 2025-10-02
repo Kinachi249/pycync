@@ -1,0 +1,246 @@
+{
+  "bulbsArray": [
+    {
+      "occupancyDeactivationPeriod": 30,
+      "lightRingBrightness": 5,
+      "displayName": "Bedroom Lamp",
+      "showOnHome": true,
+      "loadSelection": 1,
+      "savedLightShowsCrcMap": {
+        "10": 210
+      },
+      "mac": "ABCDEF123456",
+      "lightRingColor": 0,
+      "ambientLightEnable": false,
+      "occupancySensitivity": 0,
+      "firmwareVersion": "1.0.315",
+      "occupancyEnable": true,
+      "followTheSun": false,
+      "deviceType": 131,
+      "wifiDisconnectIndicatorEnable": true,
+      "fadeOff": 1,
+      "switchID": 6874,
+      "allowOTAUpdates": true,
+      "deviceID": 9000002,
+      "fadeOn": 1,
+      "defaultBrightness": 100,
+      "wifiMac": "AB:CD:EF:12:34:56",
+      "lightRingMode": 0,
+      "ambientLightSensitivity": 0,
+      "simpleModeEnabled": true,
+      "occupancyTimeoutPeriod": 300
+    },
+    {
+      "occupancyDeactivationPeriod": 0,
+      "lightRingBrightness": 0,
+      "displayName": "Office Light",
+      "showOnHome": false,
+      "loadSelection": 1,
+      "mac": "123456ABCDEF",
+      "lightRingColor": 0,
+      "ambientLightEnable": false,
+      "occupancySensitivity": 0,
+      "firmwareVersion": "1.3.176",
+      "occupancyEnable": false,
+      "followTheSun": false,
+      "deviceType": 137,
+      "wifiDisconnectIndicatorEnable": false,
+      "fadeOff": 0,
+      "allowOTAUpdates": false,
+      "deviceID": 9000004,
+      "commissionedDate": "2022-09-30T00:00:52Z",
+      "fadeOn": 0,
+      "defaultBrightness": 0,
+      "lightRingMode": 0,
+      "ambientLightSensitivity": 0,
+      "simpleModeEnabled": false,
+      "occupancyTimeoutPeriod": 0
+    }
+  ],
+  "lightShows": [
+    {
+      "icon": 17,
+      "index": 10,
+      "speed": [
+        60
+      ],
+      "colors": [
+        "FF2C2F",
+        "FF7647",
+        "FFA064",
+        "FF9A63",
+        "FF646B"
+      ],
+      "brightness": [
+        45
+      ],
+      "colorSmoothing": {
+        "fadeWidth": 8,
+        "colorWidth": 3
+      },
+      "colorOrder": "inOrder",
+      "effect": 3,
+      "name": "Red Glow"
+    }
+  ],
+  "admin": {
+    "emailAddress": "user-email@email.com",
+    "lastUseDate": "2023-03-09 13:19:42",
+    "userID": 123456789,
+    "createDate": "2023-03-09 12:28:11",
+    "username": ""
+  },
+  "lastUseDate": "2023-05-30 19:33:56",
+  "groupsArray": [
+    {
+      "sensorSchedules": [
+        {
+          "brightness": 100,
+          "cct": 0,
+          "displayName": "",
+          "isEnabled": true,
+          "startTime": "2021-03-11 05:00",
+          "endTime": "2021-03-11 08:59",
+          "id": 0,
+          "simpleMode": true
+        },
+        {
+          "brightness": 100,
+          "cct": 0,
+          "displayName": "",
+          "isEnabled": true,
+          "startTime": "2021-03-11 09:00",
+          "endTime": "2021-03-11 16:59",
+          "id": 1,
+          "simpleMode": true
+        },
+        {
+          "brightness": 100,
+          "cct": 0,
+          "displayName": "",
+          "isEnabled": true,
+          "startTime": "2021-03-11 17:00",
+          "endTime": "2021-03-11 21:59",
+          "id": 2,
+          "simpleMode": true
+        },
+        {
+          "brightness": 100,
+          "cct": 0,
+          "displayName": "",
+          "isEnabled": true,
+          "startTime": "2021-03-11 22:00",
+          "endTime": "2021-03-11 04:59",
+          "id": 3,
+          "simpleMode": true
+        }
+      ],
+      "displayName": "Bedroom",
+      "groupID": 12345,
+      "showOnHome": true,
+      "isSubgroup": false,
+      "deviceIDArray": [
+        2
+      ]
+    },
+    {
+      "sensorSchedules": [],
+      "displayName": "Office",
+      "groupID": 23456,
+      "showOnHome": false,
+      "isSubgroup": false,
+      "subgroupIDArray": [
+        34567
+      ],
+      "deviceIDArray": []
+    },
+    {
+      "sensorSchedules": [],
+      "displayName": "Office Lamp",
+      "groupID": 34567,
+      "showOnHome": false,
+      "isSubgroup": true,
+      "deviceIDArray": [
+        4
+      ]
+    },
+    {
+      "sensorSchedules": [],
+      "displayName": "Front Porch",
+      "groupID": 45678,
+      "showOnHome": false,
+      "isSubgroup": false,
+      "deviceIDArray": [
+        1006,
+        2006
+      ]
+    },
+    {
+      "sensorSchedules": [],
+      "displayName": "Kitchen",
+      "groupID": 56789,
+      "showOnHome": false,
+      "isSubgroup": false,
+      "deviceIDArray": [
+        7
+      ]
+    }
+  ],
+  "version": "1.0",
+  "autoOtaEnabled": true,
+  "sceneArray": [
+    {
+      "isReal": true,
+      "sceneType": 5,
+      "displayName": "Christmas lights",
+      "sceneID": 2,
+      "showOnHome": true,
+      "position": 4,
+      "actionArray": [
+        {
+          "fade": 0,
+          "bright": 5,
+          "cctOrRgb": "1",
+          "bulbIsOn": true,
+          "deviceID": 262,
+          "runMode": 0
+        },
+        {
+          "fade": 0,
+          "bright": 5,
+          "cctOrRgb": "1",
+          "bulbIsOn": true,
+          "deviceID": 518,
+          "runMode": 0
+        }
+      ]
+    }
+  ],
+  "schedules": [
+    {
+      "displayName": "Christmas lights",
+      "showOnHome": true,
+      "trigger": {
+        "action": {
+          "sceneID": 2,
+          "triggerType": 0,
+          "timerID": 5
+        },
+        "startTime": "SUNSET.0",
+        "cyc": 127
+      },
+      "state": true,
+      "triggerType": 0,
+      "scheduleID": 5
+    }
+  ],
+  "deviceIdRecord": 2,
+  "ftsModel": {
+    "sleep": "11:00 PM",
+    "wakeUp": "07:00 AM",
+    "am": "07:00 AM",
+    "pm": "03:00 PM",
+    "day": "11:00 AM"
+  },
+  "createDate": "2023-03-09 12:28:11"
+}
