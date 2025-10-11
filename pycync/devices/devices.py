@@ -49,7 +49,24 @@ def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any],
                 product_id,
                 authorize_code,
                 datapoints=device_datapoint_data,
-                command_client=command_client)
+                command_client=command_client
+            )
+        case DeviceType.PLUG:
+            return CyncPlug(
+                is_online,
+                wifi_connected,
+                device_id,
+                mesh_device_id,
+                home_id,
+                name,
+                device_type_id,
+                device_type,
+                mac,
+                product_id,
+                authorize_code,
+                datapoints=device_datapoint_data,
+                command_client=command_client
+            )
         case _:
             return CyncDevice(
                 is_online,
@@ -92,9 +109,8 @@ class CyncDevice(CyncControllable):
         self.is_online = is_online
         self.wifi_connected = wifi_connected
         self.device_id = device_id
-        self.mesh_device_id = mesh_device_id
         self.parent_home_id = home_id
-        self.isolated_mesh_id = self.mesh_device_id % self.parent_home_id
+        self.mesh_device_id = mesh_device_id % self.parent_home_id
         self._name = name
         self.device_type = device_type
         self.mac = mac_address
@@ -104,6 +120,8 @@ class CyncDevice(CyncControllable):
         self.device_type_id = device_type_id
         self._capabilities = DEVICE_CAPABILITIES.get(self.device_type_id, {})
         self._command_client = command_client
+        self._mesh_group_id = self.mesh_device_id // 1000
+        self.isolated_mesh_id = self.mesh_device_id % 1000
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CyncDevice:
@@ -180,8 +198,12 @@ class CyncDevice(CyncControllable):
         return self.isolated_mesh_id
 
     @property
+    def mesh_group_id(self) -> int:
+        return self._mesh_group_id
+
+    @property
     def unique_id(self) -> str:
-        return f"{self.parent_home_id}-{self.device_id}"
+        return f"{self.parent_home_id}-{self.mesh_device_id}"
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
@@ -312,3 +334,61 @@ class CyncLight(CyncDevice):
             raise UnsupportedCapabilityError()
 
         await self._command_client.set_rgb(self, rgb)
+
+class CyncPlug(CyncDevice):
+    """Class for representing Cync plugs."""
+
+    def __init__(self,
+                 is_online: bool,
+                 wifi_connected: bool,
+                 device_id: int,
+                 mesh_device_id: int,
+                 home_id: int,
+                 name: str,
+                 device_type_id: int,
+                 device_type: DeviceType,
+                 mac_address: str,
+                 product_id: str,
+                 authorize_code: str,
+                 is_on: bool = False,
+                 datapoints: dict[str, Any] = None,
+                 command_client: CommandClient = None, ):
+        super().__init__(is_online,
+                         wifi_connected,
+                         device_id,
+                         mesh_device_id,
+                         home_id,
+                         name,
+                         device_type_id,
+                         device_type,
+                         mac_address,
+                         product_id,
+                         authorize_code,
+                         datapoints,
+                         command_client)
+
+        self._is_on = is_on
+
+    @property
+    def is_on(self) -> bool:
+        if not self.supports_capability(CyncCapability.ON_OFF):
+            raise UnsupportedCapabilityError()
+
+        return self._is_on
+
+    def update_state(self, is_on: bool, is_online: bool = None):
+        self._is_on = is_on
+        if is_online is not None:
+            self.is_online = is_online
+
+    async def turn_on(self):
+        if not self.supports_capability(CyncCapability.ON_OFF):
+            raise UnsupportedCapabilityError()
+
+        await self._command_client.set_power_state(self, True)
+
+    async def turn_off(self):
+        if not self.supports_capability(CyncCapability.ON_OFF):
+            raise UnsupportedCapabilityError()
+
+        await self._command_client.set_power_state(self, False)

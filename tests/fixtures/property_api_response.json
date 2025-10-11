@@ -21,7 +21,7 @@
       "fadeOff": 1,
       "switchID": 6874,
       "allowOTAUpdates": true,
-      "deviceID": 9000002,
+      "deviceID": 1234567890002,
       "fadeOn": 1,
       "defaultBrightness": 100,
       "wifiMac": "AB:CD:EF:12:34:56",
@@ -47,10 +47,38 @@
       "wifiDisconnectIndicatorEnable": false,
       "fadeOff": 0,
       "allowOTAUpdates": false,
-      "deviceID": 9000004,
+      "deviceID": 1234567890004,
       "commissionedDate": "2022-09-30T00:00:52Z",
       "fadeOn": 0,
       "defaultBrightness": 0,
+      "lightRingMode": 0,
+      "ambientLightSensitivity": 0,
+      "simpleModeEnabled": false,
+      "occupancyTimeoutPeriod": 0
+    },
+    {
+      "occupancyDeactivationPeriod": 0,
+      "lightRingBrightness": 0,
+      "displayName": "Right Outlet",
+      "showOnHome": false,
+      "loadSelection": 0,
+      "lightRingColor": 0,
+      "mac": "654321ABCDEF",
+      "ambientLightEnable": false,
+      "firmwareVersion": "",
+      "occupancySensitivity": 0,
+      "occupancyEnable": false,
+      "followTheSun": false,
+      "deviceType": 67,
+      "fadeOff": 0,
+      "wifiDisconnectIndicatorEnable": true,
+      "switchID": 1862155454,
+      "allowOTAUpdates": true,
+      "deviceID": 1234567890002006,
+      "commissionedDate": "2022-12-10T20:37:11Z",
+      "fadeOn": 0,
+      "defaultBrightness": 0,
+      "wifiMac": "654321ABCDEF",
       "lightRingMode": 0,
       "ambientLightSensitivity": 0,
       "simpleModeEnabled": false,
@@ -183,6 +211,17 @@
       "isSubgroup": false,
       "deviceIDArray": [
         7
+      ]
+    },
+    {
+      "sensorSchedules": [],
+      "displayName": "Front Porch",
+      "groupID": 32771,
+      "showOnHome": false,
+      "isSubgroup": false,
+      "deviceIDArray": [
+        1006,
+        2006
       ]
     }
   ],

@@ -102,6 +102,10 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
         return self.room_id
 
     @property
+    def mesh_group_id(self) -> int:
+        return 0
+
+    @property
     def unique_id(self) -> str:
         return f"{self.parent_home_id}-{self.room_id}"
 
@@ -175,6 +179,10 @@ class CyncGroup(GroupedCyncDevices, CyncControllable):
     @property
     def mesh_reference_id(self) -> int:
         return self.group_id
+
+    @property
+    def mesh_group_id(self) -> int:
+        return 0
 
     @property
     def unique_id(self) -> str:

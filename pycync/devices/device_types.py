@@ -40,6 +40,11 @@ class DeviceType(Enum):
         return resolved_type in {cls.LIGHT, cls.INDOOR_LIGHT_STRIP, cls.OUTDOOR_LIGHT_STRIP, cls.NEON_LIGHT_STRIP,
                                  cls.CAFE_STRING_LIGHTS, cls.DOWNLIGHT, cls.UNDERCABINET_FIXTURES, cls.LIGHT_TILE}
 
+    @classmethod
+    def is_plug(cls, device_type_code: int) -> bool:
+        resolved_type = DEVICE_TYPES.get(device_type_code, DeviceType.UNKNOWN)
+        return resolved_type == cls.PLUG
+
 
 DEVICE_TYPES = {
     # FullColorStripGen1Standalone

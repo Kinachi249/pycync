@@ -3,7 +3,7 @@ import time
 from typing import List
 
 import pytest
-from pycync.devices import device_storage
+from pycync.devices import device_storage, CyncControllable
 from unittest.mock import patch
 
 from pycync import User, Cync, CyncDevice, CyncHome, CyncRoom, CyncGroup
@@ -60,7 +60,7 @@ async def test_refresh_home_info(auth_client, command_client):
     assert len(homes) == 1
 
     rooms: List[CyncRoom] = homes[0].rooms
-    assert len(rooms) == 4
+    assert len(rooms) == 5
 
     office: CyncRoom = next(room for room in rooms if room.name == "Office")
     assert office is not None
@@ -77,6 +77,14 @@ async def test_refresh_home_info(auth_client, command_client):
     assert len(bedroom.devices) == 1
     device: CyncDevice = bedroom.devices[0]
     assert device.name == "Bedroom Lamp"
-    assert device.parent_home_id == 9000
+    assert device.parent_home_id == 1234567890
     assert device.device_id == 6874
     assert device.isolated_mesh_id == 2
+
+    porch: CyncRoom = next(room for room in rooms if room.name == "Front Porch")
+    assert porch is not None
+    assert len(porch.devices) == 1
+    assert len(porch.groups) == 0
+
+    plug: CyncControllable = porch.devices[0]
+    assert plug.name == "Right Outlet"

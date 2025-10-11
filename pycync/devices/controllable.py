@@ -28,6 +28,11 @@ class CyncControllable(Protocol):
 
     @property
     @abstractmethod
+    def mesh_group_id(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
     def unique_id(self) -> str:
         """Provides an identifier that uniquely identifies this controllable entity."""
         pass
