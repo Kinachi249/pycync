@@ -27,18 +27,20 @@ def build_query_device_inner_packet(pipe_direction):
                                  PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value, command_bytes)
 
 
-def build_power_state_inner_packet(pipe_direction, standalone_mesh_id, is_on):
+def build_power_state_inner_packet(pipe_direction, standalone_mesh_id, mesh_group_id, is_on):
     command_code = PipeCommandCode.SET_POWER_STATE.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
 
-    mesh_id_bytes = standalone_mesh_id.to_bytes(2, 'little')
+    mesh_id_bytes = standalone_mesh_id.to_bytes(1, 'little')
+    mesh_group_bytes = mesh_group_id.to_bytes(1, 'little')
     command_code_bytes = command_code.to_bytes(1, "little")
     extra_command_bytes = bytearray.fromhex("1102")
     is_on_bytes = is_on.to_bytes(1, "little")
 
     command_bytes = (generate_zero_bytes(1) +
                      mesh_id_bytes +
+                     mesh_group_bytes +
                      command_code_bytes +
                      extra_command_bytes +
                      is_on_bytes +

@@ -59,17 +59,27 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
     if packet[4:7].hex() == '010106' and is_mesh_device:
         packet = packet[7:]
         while len(packet) > 3:
-            info_length = struct.unpack(">H", packet[1:3])[0]
+            info_length = struct.unpack(">H", packet[1:3])[0] & 0x0FFF
             packet = packet[3:info_length + 3]
             mesh_id = packet[0]
-            try:
-                resolved_device: CyncDevice = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-                if DeviceType.is_light(resolved_device.device_type_id):
-                    resolved_device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
-            except StopIteration as ex:
-                raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
-            updated_device_data[resolved_device.device_id] = resolved_device
+            resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
+            if len(resolved_devices) == 0:
+                raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+            if DeviceType.is_light(resolved_devices[0].device_type_id):
+                for device in resolved_devices:
+                    device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
+                    updated_device_data[device.unique_id] = device
+            elif DeviceType.is_plug(resolved_devices[0].device_type_id):
+                for device in resolved_devices:
+                    if device.mesh_group_id > 0:
+                        is_on = device.mesh_group_id == packet[2] or packet[2] == 3
+                    else:
+                        is_on = bool(packet[1])
+
+                    device.update_state(is_on)
+                    updated_device_data[device.unique_id] = device
+
             packet = packet[info_length + 1:]
 
         return ParsedMessage(MessageType.SYNC.value, is_response, device_id, updated_device_data, version)
@@ -126,22 +136,32 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
     for i in range(device_count):
         device_data = trimmed_bytes[0:24]
-
         mesh_id = struct.unpack("<H", device_data[0:2])[0]
-        is_online = device_data[3]
-        is_on = device_data[8]
-        brightness = device_data[12]
-        color_mode = device_data[16]
-        rgb = (device_data[20], device_data[21], device_data[22])
 
-        try:
-            resolved_device: CyncDevice = next(device for device in device_list if device.isolated_mesh_id == mesh_id)
-            if DeviceType.is_light(resolved_device.device_type_id):
-                resolved_device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
-        except StopIteration as ex:
-            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
+        resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
+        if len(resolved_devices) == 0:
+            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
 
-        updated_device_data[resolved_device.device_id] = resolved_device
+        if DeviceType.is_light(resolved_devices[0].device_type_id):
+            is_online = device_data[3]
+            is_on = device_data[8]
+            brightness = device_data[12]
+            color_mode = device_data[16]
+            rgb = (device_data[20], device_data[21], device_data[22])
+            for device in resolved_devices:
+                device.update_state(bool(is_on), brightness, color_mode, rgb, bool(is_online))
+                updated_device_data[device.unique_id] = device
+        elif DeviceType.is_plug(resolved_devices[0].device_type_id):
+            is_online = device_data[3]
+            for device in resolved_devices:
+                if device.mesh_group_id > 0:
+                    is_on = device.mesh_group_id == device_data[12] or device_data[12] == 3
+                else:
+                    is_on = bool(device_data[8])
+
+                device.update_state(is_on, bool(is_online))
+                updated_device_data[device.unique_id] = device
+
         trimmed_bytes = trimmed_bytes[24:]
 
     return updated_device_data

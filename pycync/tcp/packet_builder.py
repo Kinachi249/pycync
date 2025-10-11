@@ -35,9 +35,9 @@ def build_state_query_request_packet(device_id: int):
     return header + payload
 
 
-def build_power_state_request_packet(device_id: int, standalone_mesh_id: int, is_on: bool):
+def build_power_state_request_packet(device_id: int, standalone_mesh_id: int, mesh_group_id: int, is_on: bool):
     pipe_packet = inner_packet_builder.build_power_state_inner_packet(PipeDirection.REQUEST.value, standalone_mesh_id,
-                                                                      is_on)
+                                                                      mesh_group_id, is_on)
 
     payload = _generate_payload(device_id, pipe_packet)
     header = _generate_header(MessageType.PIPE.value, False, payload)

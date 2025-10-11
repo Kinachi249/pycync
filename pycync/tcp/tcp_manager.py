@@ -159,9 +159,9 @@ class TcpManager:
             state_request_packet = packet_builder.build_state_query_request_packet(hub_device.device_id)
             await self._send_request(state_request_packet)
 
-    async def set_power_state(self, hub_device: CyncDevice, mesh_id: int, is_on: bool):
+    async def set_power_state(self, hub_device: CyncDevice, mesh_id: int, mesh_group_id: int, is_on: bool):
         """Set device(s) to either on or off."""
-        request_packet = packet_builder.build_power_state_request_packet(hub_device.device_id, mesh_id, is_on)
+        request_packet = packet_builder.build_power_state_request_packet(hub_device.device_id, mesh_id, mesh_group_id, is_on)
         await self._send_request(request_packet)
 
     async def set_brightness(self, hub_device: CyncDevice, mesh_id: int, brightness: int):
