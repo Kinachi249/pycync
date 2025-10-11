@@ -26,9 +26,17 @@ def test_build_power_state_request_packet(mocker):
     mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
     mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
 
-    power_state_request_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
+    power_state_request_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
 
     assert power_state_request_packet == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000500d01102010000c87e")
+
+def test_build_power_state_request_packet_grouped_device(mocker):
+    mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
+    mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
+
+    power_state_request_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, 6, 1, True)
+
+    assert power_state_request_packet == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000601d01102010000ca7e")
 
 def test_build_brightness_request_packet(mocker):
     mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
@@ -58,16 +66,16 @@ def test_serialized_7e_packet(mocker):
     mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
     mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
 
-    power_state_request_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, 0x7e, True)
+    power_state_request_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, 0x7e, 0, True)
 
     assert power_state_request_packet == bytearray.fromhex("730000002000005ba00001007e01010000f8d00d0001010000007d5e00d01102010000417e")
 
 def test_sequence_generation():
-    power_state_request_packet_1 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
-    power_state_request_packet_2 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
-    power_state_request_packet_3 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
-    power_state_request_packet_4 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
-    power_state_request_packet_5 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True)
+    power_state_request_packet_1 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
+    power_state_request_packet_2 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
+    power_state_request_packet_3 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
+    power_state_request_packet_4 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
+    power_state_request_packet_5 = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, 0, True)
 
     assert power_state_request_packet_1 == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000500d01102010000c87e")
     assert power_state_request_packet_2 == bytearray.fromhex("730000001f00005ba00002007e02010000f8d00d0002010000000500d01102010000c97e")
