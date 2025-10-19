@@ -23,15 +23,19 @@ if TYPE_CHECKING:
 
 TCP_API_HOSTNAME = "cm-sec.gelighting.com"
 TCP_API_TLS_PORT = 23779
+_CONNECTION_LOST_STRING = "CyncConnectionLost"
 
 class TcpManager:
     _LOGGER = logging.getLogger(__name__)
 
-    def __init__(self, user: User, client_callback: Callable):
+    def __init__(self, user: User, client_callback: Callable, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
         self._user = user
 
         self._packet_queue = asyncio.Queue()
         self._client_callback = client_callback
+
+        self._ssl_context = ssl_context
+        self._ssl_context_no_verify = ssl_context_no_verify
 
         self._login_acknowledged = False
 
@@ -62,7 +66,11 @@ class TcpManager:
                 self._process_packet_task.add_done_callback(self._read_task_finished)
 
     async def _establish_tcp_connection(self):
-        context = ssl.create_default_context()
+        if self._ssl_context is None:
+            context = ssl.create_default_context()
+        else:
+            context = self._ssl_context
+
         try:
             self._transport, self._protocol = await asyncio.get_event_loop().create_connection(lambda: CyncTcpProtocol(self._packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
         except Exception:
@@ -71,8 +79,12 @@ class TcpManager:
             # Why they haven't renewed/fixed it, and why their devices allow this, who knows...
             self._LOGGER.debug("Could not connect to Cync TCP server with strict TLS. Using relaxed TLS.")
 
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
+            if self._ssl_context_no_verify is None:
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            else:
+                context = self._ssl_context_no_verify
+
             self._transport, self._protocol = await asyncio.get_event_loop().create_connection(lambda: CyncTcpProtocol(self._packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
 
     async def _process_packets(self):
@@ -81,14 +93,21 @@ class TcpManager:
         while True:
             parsed_packet = await self._packet_queue.get()
 
-            match parsed_packet.message_type:
-                case MessageType.LOGIN.value:
-                    self._login_acknowledged = True
-                case MessageType.DISCONNECT.value:
-                    self._login_acknowledged = False
-                    raise ConnectionClosedError
+            if parsed_packet == _CONNECTION_LOST_STRING:
+                self._LOGGER.error("Cync server connection closed. Reconnecting in 10 seconds...")
+                self._transport.close()
+                self._login_acknowledged = False
+                self._heartbeat_task.cancel()
+                asyncio.create_task(self._start_tcp_client(10))
+            else:
+                match parsed_packet.message_type:
+                    case MessageType.LOGIN.value:
+                        self._login_acknowledged = True
+                    case MessageType.DISCONNECT.value:
+                        self._login_acknowledged = False
+                        raise ConnectionClosedError
 
-            await self._client_callback(parsed_packet)
+                await self._client_callback(parsed_packet)
 
     def _read_task_finished(self, future):
         self._transport.close()
@@ -169,6 +188,9 @@ class CyncTcpProtocol(asyncio.Protocol):
         self._transport = transport
 
         self._log_in()
+
+    def connection_lost(self, exc):
+        self._packet_queue.put_nowait(_CONNECTION_LOST_STRING)
 
     def data_received(self, data):
         while len(data) > 0:
