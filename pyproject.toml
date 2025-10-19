@@ -1,6 +1,6 @@
 [project]
 name = "pycync"
-version = "0.4.1"
+version = "0.4.2"
 description = "A Python library to communicate with Cync devices."
 authors = [
     { name = "@Kinachi249" }
