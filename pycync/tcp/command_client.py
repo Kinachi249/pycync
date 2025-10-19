@@ -4,6 +4,8 @@ This client listens for device state changes and updates them accordingly, and a
 """
 
 from __future__ import annotations
+
+import ssl
 from typing import TYPE_CHECKING
 
 import asyncio
@@ -31,8 +33,8 @@ class CommandClient:
         self._device_statuses_updated = False
         self._tcp_manager: TcpManager = None
 
-    def start_connection(self):
-        self._tcp_manager = TcpManager(self._user, self.on_message_received)
+    def start_connection(self, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
+        self._tcp_manager = TcpManager(self._user, self.on_message_received, ssl_context, ssl_context_no_verify)
 
     async def on_message_received(self, parsed_message: ParsedMessage):
         match parsed_message.message_type:

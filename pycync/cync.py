@@ -4,6 +4,7 @@ Each instance of this class corresponds to one user, and all devices/homes assoc
 """
 
 import asyncio
+import ssl
 from typing import Callable
 
 from .auth import Auth
@@ -26,11 +27,11 @@ class Cync:
         self._command_client = CommandClient(auth.user)
 
     @classmethod
-    async def create(cls, auth: Auth):
+    async def create(cls, auth: Auth, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
         cync_api = Cync(auth)
 
         await cync_api.refresh_home_info()
-        cync_api._command_client.start_connection()
+        cync_api._command_client.start_connection(ssl_context, ssl_context_no_verify)
 
         return cync_api
 
