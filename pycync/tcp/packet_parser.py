@@ -52,7 +52,7 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
     device_type = next(device.device_type_id for device in device_list if device.device_id == device_id)
-    is_mesh_device = CyncCapability.SIG_MESH in DEVICE_CAPABILITIES[device_type]
+    is_mesh_device = CyncCapability.NO_MESH not in DEVICE_CAPABILITIES[device_type]
 
     updated_device_data = {}
 
