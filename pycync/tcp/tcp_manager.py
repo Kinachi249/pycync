@@ -5,7 +5,7 @@ packets associated with device events.
 
 from __future__ import annotations
 
-from asyncio import CancelledError
+from asyncio import CancelledError, QueueShutDown
 from typing import TYPE_CHECKING
 
 import asyncio
@@ -31,7 +31,7 @@ class TcpManager:
     def __init__(self, user: User, client_callback: Callable, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
         self._user = user
 
-        self._packet_queue = asyncio.Queue()
+        self._packet_queue = None
         self._client_callback = client_callback
 
         self._ssl_context = ssl_context
@@ -71,6 +71,8 @@ class TcpManager:
         else:
             context = self._ssl_context
 
+        self._packet_queue = asyncio.Queue()
+
         try:
             self._transport, self._protocol = await asyncio.get_event_loop().create_connection(lambda: CyncTcpProtocol(self._packet_queue, self._user), host=TCP_API_HOSTNAME, port=TCP_API_TLS_PORT, ssl=context)
         except Exception:
@@ -91,13 +93,15 @@ class TcpManager:
         """Process parsed packets as they're added to the async queue."""
 
         while True:
-            parsed_packet = await self._packet_queue.get()
+            try:
+                parsed_packet = await self._packet_queue.get()
+            except QueueShutDown:
+                self._LOGGER.debug("Shutting down queue")
+                break
 
             if parsed_packet == _CONNECTION_LOST_STRING:
                 self._LOGGER.error("Cync server connection closed. Reconnecting in 10 seconds...")
-                self._transport.close()
-                self._login_acknowledged = False
-                self._heartbeat_task.cancel()
+                self._process_packet_task.cancel()
                 asyncio.create_task(self._start_tcp_client(10))
             else:
                 match parsed_packet.message_type:
@@ -110,6 +114,7 @@ class TcpManager:
                 await self._client_callback(parsed_packet)
 
     def _read_task_finished(self, future):
+        self._packet_queue.shutdown()
         self._transport.close()
 
         try:
@@ -190,7 +195,10 @@ class CyncTcpProtocol(asyncio.Protocol):
         self._log_in()
 
     def connection_lost(self, exc):
-        self._packet_queue.put_nowait(_CONNECTION_LOST_STRING)
+        try:
+            self._packet_queue.put_nowait(_CONNECTION_LOST_STRING)
+        except QueueShutDown:
+            self._LOGGER.debug("Queue already shut down.")
 
     def data_received(self, data):
         while len(data) > 0:
