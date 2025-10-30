@@ -131,7 +131,7 @@ class CommandClient:
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
 
         hub_device = next((device for device in home.get_flattened_device_list() if
-                           device.wifi_connected and CyncCapability.SIG_MESH in device.capabilities), None)
+                           device.wifi_connected and CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities), None)
         if hub_device is None:
             raise NoHubConnectedError
 
