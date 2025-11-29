@@ -42,6 +42,8 @@ class DeviceType(Enum):
 
 
 DEVICE_TYPES = {
+    # FullColorA19Gen2Standalone
+    6: DeviceType.LIGHT,
     # FullColorStripGen1Standalone
     8: DeviceType.INDOOR_LIGHT_STRIP,
     # CLifeA19Gen2StandaloneCECTier2

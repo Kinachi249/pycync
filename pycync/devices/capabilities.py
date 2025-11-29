@@ -11,6 +11,7 @@ List last updated from Android app version 6.20.0.54634-60b11b1f5
 
 from enum import Enum
 
+
 class CyncCapability(Enum):
     """List of all possible capabilities for a device."""
     COMMISSION = "Commission"
@@ -81,9 +82,19 @@ class CyncCapability(Enum):
     ON_OFF_OBSERVER = "OnOffObserver"
     OUTDOOR = "Outdoor"
 
+
 # Map of device type IDs to their capabilities.
 # Human-readable device type names have been added as comments for convenience.
 DEVICE_CAPABILITIES = {
+    # FullColorA19Gen2Standalone
+    6: {CyncCapability.SET_MESH_ADDRESS, CyncCapability.COMMISSION, CyncCapability.EDIT_NAME, CyncCapability.DELETE,
+        CyncCapability.FACTORY_RESET, CyncCapability.SET_TIME, CyncCapability.GET_TIME, CyncCapability.ON_OFF,
+        CyncCapability.DIMMING, CyncCapability.COMBO, CyncCapability.CCT_COLOR, CyncCapability.RGB_COLOR,
+        CyncCapability.ASSIGN_TO_GROUP, CyncCapability.SCENE_CONTROL, CyncCapability.AUTOMATION_CONTROL,
+        CyncCapability.PRODUCT_MODEL_INFO, CyncCapability.MAC_ADDRESS_INFO, CyncCapability.FIRMWARE_INFO,
+        CyncCapability.ALEXA_SKILL_CONTROL, CyncCapability.GOOGLE_ACTION_CONTROL, CyncCapability.HOME_KIT_CONTROL,
+        CyncCapability.CAN_ACT_AS_BLE_PROXY, CyncCapability.MOTION_OBSERVER, CyncCapability.SUNRISE_SUNSET,
+        CyncCapability.LIGHT_SHOW},
     # FullColorStripGen1Standalone
     8: {CyncCapability.SET_MESH_ADDRESS, CyncCapability.COMMISSION, CyncCapability.EDIT_NAME, CyncCapability.DELETE,
         CyncCapability.FACTORY_RESET, CyncCapability.SET_TIME, CyncCapability.GET_TIME, CyncCapability.ON_OFF,
