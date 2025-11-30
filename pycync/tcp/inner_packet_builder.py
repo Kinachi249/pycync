@@ -103,6 +103,37 @@ def build_rgb_inner_packet(pipe_direction, standalone_mesh_id, rgb: tuple[int, i
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
+def build_combo_inner_packet(pipe_direction, standalone_mesh_id, is_on: bool, brightness: int, color_temp: int | None, rgb: tuple[int, int, int] | None):
+    command_code = PipeCommandCode.COMBO_CONTROL.value
+    sequence_bytes = _get_and_increment_sequence_bytes()
+    packet_direction_bytes = pipe_direction.to_bytes(1, "little")
+
+    mesh_id_bytes = standalone_mesh_id.to_bytes(2, 'little')
+    command_code_bytes = command_code.to_bytes(1, "little")
+    extra_command_bytes = bytearray.fromhex("1102")
+    is_on_bytes = is_on.to_bytes(1, "little")
+    brightness_bytes = brightness.to_bytes(1, "little")
+    if color_temp is not None:
+        color_mode_bytes = color_temp.to_bytes(1, "little")
+        rgb_bytes = bytearray.fromhex("000000")
+    elif rgb is not None:
+        color_mode_bytes = bytearray.fromhex("fe")
+        rgb_bytes = bytearray(rgb)
+    else:
+        color_mode_bytes = bytearray.fromhex("ff")
+        rgb_bytes = bytearray.fromhex("000000")
+
+    command_bytes = (generate_zero_bytes(1) +
+                     mesh_id_bytes +
+                     command_code_bytes +
+                     extra_command_bytes +
+                     is_on_bytes +
+                     brightness_bytes +
+                     color_mode_bytes +
+                     rgb_bytes)
+
+    return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
+
 
 def _compile_final_packet(sequence_bytes, pipe_direction_bytes, pipe_command_code, command_bytes) -> bytearray:
     command_code_bytes = pipe_command_code.to_bytes(1, "little")
