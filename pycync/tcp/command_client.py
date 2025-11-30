@@ -109,6 +109,21 @@ class CommandClient:
 
         await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 
+    async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int, color_temp: int = None, rgb: tuple[int, int, int] = None):
+        if brightness < 0 or brightness > 100:
+            raise CyncError("Brightness must be between 0 and 100 inclusive")
+
+        if color_temp is not None and (color_temp < 1 or color_temp > 100):
+            raise CyncError("Color temperature must be between 1 and 100 inclusive.")
+
+        if rgb is not None and (rgb[0] > 255 or rgb[1] > 255 or rgb[2] > 255):
+            raise CyncError("Each RGB value must be between 0 and 255 inclusive")
+
+        associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        hub_device = await self._fetch_hub_device(associated_home)
+
+        await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb)
+
     async def shut_down(self):
         await self._tcp_manager.shut_down()
 

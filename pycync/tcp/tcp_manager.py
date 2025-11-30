@@ -179,6 +179,11 @@ class TcpManager:
         request_packet = packet_builder.build_rgb_request_packet(hub_device.device_id, mesh_id, rgb)
         await self._send_request(request_packet)
 
+    async def set_combo(self, hub_device: CyncDevice, mesh_id: int, is_on: bool, brightness: int, color_temp: int, rgb: tuple[int, int, int]):
+        """Sets the RGB color."""
+        request_packet = packet_builder.build_combo_request_packet(hub_device.device_id, mesh_id, is_on, brightness, color_temp, rgb)
+        await self._send_request(request_packet)
+
 class CyncTcpProtocol(asyncio.Protocol):
     """Protocol class for processing the Cync TCP packets."""
 

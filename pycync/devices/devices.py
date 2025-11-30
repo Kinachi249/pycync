@@ -312,3 +312,9 @@ class CyncLight(CyncDevice):
             raise UnsupportedCapabilityError()
 
         await self._command_client.set_rgb(self, rgb)
+
+    async def set_combo(self, is_on: bool, brightness: int, color_temp: int = None, rgb: tuple[int, int, int] = None):
+        if not self.supports_capability(CyncCapability.COMBO):
+            raise UnsupportedCapabilityError()
+
+        await self._command_client.set_combo(self, is_on, brightness, color_temp, rgb)
