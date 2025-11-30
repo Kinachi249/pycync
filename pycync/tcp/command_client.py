@@ -109,7 +109,7 @@ class CommandClient:
 
         await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 
-    async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int, color_temp: int = None, rgb: tuple[int, int, int] = None):
+    async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int, color_temp: int | None = None, rgb: tuple[int, int, int] | None = None):
         if brightness < 0 or brightness > 100:
             raise CyncError("Brightness must be between 0 and 100 inclusive")
 

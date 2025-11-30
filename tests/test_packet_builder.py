@@ -70,6 +70,14 @@ def test_build_combo_rgb_request_packet(mocker):
 
     assert combo_request_packet == bytearray.fromhex("730000002200005ba00001007e01010000f8f0100001010000000500f01102012dfebeefedd07e")
 
+def test_build_combo_no_color_request_packet(mocker):
+    mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
+    mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
+
+    combo_request_packet = packet_builder.build_combo_request_packet(TEST_DEVICE_ID, TEST_DEVICE_MESH_ID, True, 45, None, None)
+
+    assert combo_request_packet == bytearray.fromhex("730000002200005ba00001007e01010000f8f0100001010000000500f01102012dff000000377e")
+
 def test_serialized_7e_packet(mocker):
     mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
     mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))

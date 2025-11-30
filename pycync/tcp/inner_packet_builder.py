@@ -103,7 +103,7 @@ def build_rgb_inner_packet(pipe_direction, standalone_mesh_id, rgb: tuple[int, i
 
     return _compile_final_packet(sequence_bytes, packet_direction_bytes, command_code, command_bytes)
 
-def build_combo_inner_packet(pipe_direction, standalone_mesh_id, is_on: bool, brightness: int, color_temp: int, rgb: tuple[int, int, int]):
+def build_combo_inner_packet(pipe_direction, standalone_mesh_id, is_on: bool, brightness: int, color_temp: int | None, rgb: tuple[int, int, int] | None):
     command_code = PipeCommandCode.COMBO_CONTROL.value
     sequence_bytes = _get_and_increment_sequence_bytes()
     packet_direction_bytes = pipe_direction.to_bytes(1, "little")
