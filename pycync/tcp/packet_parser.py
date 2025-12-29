@@ -154,10 +154,9 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
         elif DeviceType.is_plug(resolved_devices[0].device_type_id):
             is_online = device_data[3]
             for device in resolved_devices:
+                is_on = bool(device_data[8])
                 if device.mesh_group_id > 0:
-                    is_on = device.mesh_group_id == device_data[12] or device_data[12] == 3
-                else:
-                    is_on = bool(device_data[8])
+                    is_on = is_on and (device.mesh_group_id == device_data[12] or device_data[12] == 3)
 
                 device.update_state(is_on, bool(is_online))
                 updated_device_data[device.unique_id] = device
