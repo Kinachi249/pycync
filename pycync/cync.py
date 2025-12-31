@@ -79,10 +79,11 @@ class Cync:
 
             mesh_device_info = await self._auth._send_user_request(
                 f"{REST_API_BASE_URL}/v2/product/{home_json["product_id"]}/device/{home_json["id"]}/property")
-            mesh_devices = [mesh_device for mesh_device in mesh_device_info.get("bulbsArray", []) if
-                            "switchID" in mesh_device]
+            mesh_devices = mesh_device_info.get("bulbsArray", [])
             for mesh_device in mesh_devices:
-                matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
+                matching_device = None
+                if "switchID" in mesh_device:
+                    matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
                                        None)
                 created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
 
