@@ -84,10 +84,9 @@ class Cync:
             for mesh_device in mesh_devices:
                 matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
                                        None)
-                if matching_device is not None:
-                    created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
+                created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
 
-                    home_devices.append(created_device)
+                home_devices.append(created_device)
 
             room_json = []
             group_json = []

@@ -51,7 +51,7 @@ def _parse_probe_packet(packet: bytearray, is_response, version) -> ParsedMessag
 def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> ParsedMessage:
     device_id = struct.unpack(">I", packet[0:4])[0]
     device_list = device_storage.get_associated_home_devices(user_id, device_id)
-    device_type = next(device.device_type_id for device in device_list if device.device_id == device_id)
+    device_type = next(device.device_type_id for device in device_list if device.wifi_device_id == device_id)
     is_mesh_device = CyncCapability.NO_MESH not in DEVICE_CAPABILITIES[device_type]
 
     updated_device_data = {}
@@ -69,7 +69,7 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
             except StopIteration as ex:
                 raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
-            updated_device_data[resolved_device.device_id] = resolved_device
+            updated_device_data[resolved_device.wifi_device_id] = resolved_device
             packet = packet[info_length + 1:]
 
         return ParsedMessage(MessageType.SYNC.value, is_response, device_id, updated_device_data, version)
@@ -79,15 +79,15 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
 
 
 def _parse_pipe_packet(packet: bytearray, length, is_response, version, user_id) -> ParsedMessage:
-    device_id = struct.unpack(">I", packet[0:4])[0]
-    device_list = device_storage.get_associated_home_devices(user_id, device_id)
+    wifi_device_id = struct.unpack(">I", packet[0:4])[0]
+    device_list = device_storage.get_associated_home_devices(user_id, wifi_device_id)
 
     if length > 7 and packet[7] == 0x7e:
         inner_frame = _parse_inner_packet_frame(packet[7:], device_list)
     else:
         raise NotImplementedError
 
-    return ParsedMessage(MessageType.PIPE.value, is_response, device_id, inner_frame.data, version,
+    return ParsedMessage(MessageType.PIPE.value, is_response, wifi_device_id, inner_frame.data, version,
                          inner_frame.command_type)
 
 
@@ -141,7 +141,7 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
         except StopIteration as ex:
             raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id)) from ex
 
-        updated_device_data[resolved_device.device_id] = resolved_device
+        updated_device_data[resolved_device.mesh_device_id] = resolved_device
         trimmed_bytes = trimmed_bytes[24:]
 
     return updated_device_data

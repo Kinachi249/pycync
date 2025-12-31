@@ -57,9 +57,9 @@ def get_associated_home(user_id: int, device_id: int):
 
     user_homes = _user_homes.get(user_id, UserHomes([])).homes
 
-    found_home = next((home for home in user_homes if home.contains_device_id(device_id)), None)
+    found_home = next((home for home in user_homes if home.contains_wifi_device_id(device_id)), None)
     if found_home is None:
-        raise CyncError(f"Device ID {device_id} not found on user account {user_id}.")
+        raise CyncError(f"Device Mesh ID {device_id} not found on user account {user_id}.")
     return found_home
 
 

@@ -11,20 +11,20 @@ from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
 from pycync.devices.device_types import DEVICE_TYPES, DeviceType
 
 
-def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any], home_id: int,
+def create_device(device_info: dict[str, Any] | None, mesh_device_info: dict[str, Any], home_id: int,
                   command_client: CommandClient, wifi_connected: bool = False,
                   device_datapoint_data: dict[str, Any] = None) -> CyncDevice:
     device_type_id = mesh_device_info.get("deviceType")
 
-    is_online = device_info.get("is_online", False)
+    is_online = device_info.get("is_online", False) if device_info else False
     wifi_connected = wifi_connected
-    device_id = device_info.get("id")
+    device_id = device_info.get("id") if device_info else None
     mesh_device_id = mesh_device_info.get("deviceID")
     name = mesh_device_info.get("displayName")
     device_type = DEVICE_TYPES.get(device_type_id, DeviceType.UNKNOWN)
-    mac = device_info.get("mac")
-    product_id = device_info.get("product_id")
-    authorize_code = device_info.get("authorize_code")
+    mac = mesh_device_info.get("wifiMac")
+    product_id = device_info.get("product_id") if device_info else None
+    authorize_code = device_info.get("authorize_code") if device_info else None
 
     match device_type:
         case (DeviceType.LIGHT |
@@ -74,7 +74,7 @@ class CyncDevice(CyncControllable):
     def __init__(self,
                  is_online: bool,
                  wifi_connected: bool,
-                 device_id: int,
+                 wifi_device_id: int,
                  mesh_device_id: int,
                  home_id: int,
                  name: str,
@@ -91,7 +91,7 @@ class CyncDevice(CyncControllable):
 
         self.is_online = is_online
         self.wifi_connected = wifi_connected
-        self.device_id = device_id
+        self.wifi_device_id = wifi_device_id
         self.mesh_device_id = mesh_device_id
         self.parent_home_id = home_id
         self.isolated_mesh_id = self.mesh_device_id % self.parent_home_id
@@ -109,7 +109,7 @@ class CyncDevice(CyncControllable):
     def from_dict(cls, data: dict[str, Any]) -> CyncDevice:
         is_online = data.get("is_online")
         wifi_connected = data.get("wifi_connected")
-        device_id = data.get("device_id")
+        wifi_device_id = data.get("device_id")
         mesh_device_id = data.get("mesh_device_id")
         home_id = data.get("home_id")
         name = data.get("name")
@@ -132,7 +132,7 @@ class CyncDevice(CyncControllable):
                 return CyncLight(
                     is_online,
                     wifi_connected,
-                    device_id,
+                    wifi_device_id,
                     mesh_device_id,
                     home_id,
                     name,
@@ -149,7 +149,7 @@ class CyncDevice(CyncControllable):
                 return CyncDevice(
                     is_online,
                     wifi_connected,
-                    device_id,
+                    wifi_device_id,
                     mesh_device_id,
                     home_id,
                     name,
@@ -181,7 +181,7 @@ class CyncDevice(CyncControllable):
 
     @property
     def unique_id(self) -> str:
-        return f"{self.parent_home_id}-{self.device_id}"
+        return str(self.mesh_device_id)
 
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
@@ -193,7 +193,7 @@ class CyncLight(CyncDevice):
     def __init__(self,
                  is_online: bool,
                  wifi_connected: bool,
-                 device_id: int,
+                 wifi_device_id: int,
                  mesh_device_id: int,
                  home_id: int,
                  name: str,
@@ -210,7 +210,7 @@ class CyncLight(CyncDevice):
                  command_client: CommandClient = None, ):
         super().__init__(is_online,
                          wifi_connected,
-                         device_id,
+                         wifi_device_id,
                          mesh_device_id,
                          home_id,
                          name,

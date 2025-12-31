@@ -87,11 +87,11 @@ def test_set_and_get_callback():
 def test_get_associated_home():
     device_storage.set_user_homes(TEST_USER_ID, [home_1, home_2])
 
-    home_1_test_1 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_1_group_1_device_1.device_id)
-    home_1_test_2 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_1_device_1.device_id)
-    home_1_test_3 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_2_device_1.device_id)
-    home_2_test_1 = device_storage.get_associated_home(TEST_USER_ID, home_2_room_1_device_1.device_id)
-    home_2_test_2 = device_storage.get_associated_home(TEST_USER_ID, home_2_device_1.device_id)
+    home_1_test_1 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_1_group_1_device_1.wifi_device_id)
+    home_1_test_2 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_1_device_1.wifi_device_id)
+    home_1_test_3 = device_storage.get_associated_home(TEST_USER_ID, home_1_room_2_device_1.wifi_device_id)
+    home_2_test_1 = device_storage.get_associated_home(TEST_USER_ID, home_2_room_1_device_1.wifi_device_id)
+    home_2_test_2 = device_storage.get_associated_home(TEST_USER_ID, home_2_device_1.wifi_device_id)
 
     assert home_1_test_1 == home_1
     assert home_1_test_2 == home_1
@@ -123,11 +123,11 @@ def test_get_devices_in_associated_home():
         home_2_device_2
     ]
 
-    home_1_test_1 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_1_group_1_device_1.device_id)
-    home_1_test_2 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_1_device_1.device_id)
-    home_1_test_3 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_2_device_1.device_id)
-    home_2_test_1 = device_storage.get_associated_home_devices(TEST_USER_ID, home_2_room_1_device_1.device_id)
-    home_2_test_2 = device_storage.get_associated_home_devices(TEST_USER_ID, home_2_device_1.device_id)
+    home_1_test_1 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_1_group_1_device_1.wifi_device_id)
+    home_1_test_2 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_1_device_1.wifi_device_id)
+    home_1_test_3 = device_storage.get_associated_home_devices(TEST_USER_ID, home_1_room_2_device_1.wifi_device_id)
+    home_2_test_1 = device_storage.get_associated_home_devices(TEST_USER_ID, home_2_room_1_device_1.wifi_device_id)
+    home_2_test_2 = device_storage.get_associated_home_devices(TEST_USER_ID, home_2_device_1.wifi_device_id)
 
     assert not set(home_1_test_1).difference(set(home_1_devices))
     assert not set(home_1_test_2).difference(set(home_1_devices))

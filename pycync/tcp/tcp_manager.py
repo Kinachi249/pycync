@@ -141,10 +141,11 @@ class TcpManager:
             await self._send_request(bytes.fromhex('d300000000'))
 
     async def probe_devices(self, devices: list[CyncDevice]):
-        """Probe all account devices to see which ones are responsive over Wi-Fi."""
+        """Probe account devices with WiFi IDs to see which ones are responsive over Wi-Fi."""
+        eligible_devices = [device for device in devices if device.wifi_device_id is not None]
 
-        for device in devices:
-            probe_device_packet = packet_builder.build_probe_request_packet(device.device_id)
+        for device in eligible_devices:
+            probe_device_packet = packet_builder.build_probe_request_packet(device.wifi_device_id)
             await self._send_request(probe_device_packet)
 
     async def shut_down(self):
@@ -156,32 +157,32 @@ class TcpManager:
     async def update_mesh_devices(self, hub_devices: list[CyncDevice]):
         """Get new device state."""
         for hub_device in hub_devices:
-            state_request_packet = packet_builder.build_state_query_request_packet(hub_device.device_id)
+            state_request_packet = packet_builder.build_state_query_request_packet(hub_device.wifi_device_id)
             await self._send_request(state_request_packet)
 
     async def set_power_state(self, hub_device: CyncDevice, mesh_id: int, is_on: bool):
         """Set device(s) to either on or off."""
-        request_packet = packet_builder.build_power_state_request_packet(hub_device.device_id, mesh_id, is_on)
+        request_packet = packet_builder.build_power_state_request_packet(hub_device.wifi_device_id, mesh_id, is_on)
         await self._send_request(request_packet)
 
     async def set_brightness(self, hub_device: CyncDevice, mesh_id: int, brightness: int):
         """Sets the brightness."""
-        request_packet = packet_builder.build_brightness_request_packet(hub_device.device_id, mesh_id, brightness)
+        request_packet = packet_builder.build_brightness_request_packet(hub_device.wifi_device_id, mesh_id, brightness)
         await self._send_request(request_packet)
 
     async def set_color_temp(self, hub_device: CyncDevice, mesh_id: int, color_temp: int):
         """Sets the color temperature."""
-        request_packet = packet_builder.build_color_temp_request_packet(hub_device.device_id, mesh_id, color_temp)
+        request_packet = packet_builder.build_color_temp_request_packet(hub_device.wifi_device_id, mesh_id, color_temp)
         await self._send_request(request_packet)
 
     async def set_rgb(self, hub_device: CyncDevice, mesh_id: int, rgb: tuple[int, int, int]):
         """Sets the RGB color."""
-        request_packet = packet_builder.build_rgb_request_packet(hub_device.device_id, mesh_id, rgb)
+        request_packet = packet_builder.build_rgb_request_packet(hub_device.wifi_device_id, mesh_id, rgb)
         await self._send_request(request_packet)
 
     async def set_combo(self, hub_device: CyncDevice, mesh_id: int, is_on: bool, brightness: int, color_temp: int | None, rgb: tuple[int, int, int] | None):
         """Set multiple datapoints in one command."""
-        request_packet = packet_builder.build_combo_request_packet(hub_device.device_id, mesh_id, is_on, brightness, color_temp, rgb)
+        request_packet = packet_builder.build_combo_request_packet(hub_device.wifi_device_id, mesh_id, is_on, brightness, color_temp, rgb)
         await self._send_request(request_packet)
 
 class CyncTcpProtocol(asyncio.Protocol):

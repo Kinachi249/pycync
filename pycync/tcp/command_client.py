@@ -43,7 +43,7 @@ class CommandClient:
             case MessageType.PROBE.value if parsed_message.version != 0:
                 devices_in_home = device_storage.get_associated_home_devices(self._user.user_id,
                                                                              parsed_message.device_id)
-                device = next(device for device in devices_in_home if device.device_id == parsed_message.device_id)
+                device = next(device for device in devices_in_home if device.wifi_device_id == parsed_message.device_id)
                 device.set_wifi_connected(True)
                 self._device_statuses_updated = True
             case MessageType.SYNC.value:
@@ -52,7 +52,7 @@ class CommandClient:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
                     updated_devices: dict[int, CyncDevice] = parsed_message.data
                     for device in device_storage.get_flattened_devices(self._user.user_id):
-                        device.is_online = device.device_id in updated_devices
+                        device.is_online = device.mesh_device_id in updated_devices
                     await self._send_update_to_listener(parsed_message.data)
 
     async def probe_devices(self):
@@ -109,7 +109,8 @@ class CommandClient:
 
         await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 
-    async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int, color_temp: int | None = None, rgb: tuple[int, int, int] | None = None):
+    async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int,
+                        color_temp: int | None = None, rgb: tuple[int, int, int] | None = None):
         if brightness < 0 or brightness > 100:
             raise CyncError("Brightness must be between 0 and 100 inclusive")
 
@@ -122,7 +123,8 @@ class CommandClient:
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
         hub_device = await self._fetch_hub_device(associated_home)
 
-        await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb)
+        await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp,
+                                          rgb)
 
     async def shut_down(self):
         await self._tcp_manager.shut_down()
@@ -146,7 +148,8 @@ class CommandClient:
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
 
         hub_device = next((device for device in home.get_flattened_device_list() if
-                           device.wifi_connected and CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities), None)
+                           device.wifi_connected and device.wifi_device_id is not None and CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities),
+                          None)
         if hub_device is None:
             raise NoHubConnectedError
 

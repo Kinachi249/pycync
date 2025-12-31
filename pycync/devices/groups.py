@@ -38,13 +38,13 @@ class CyncHome:
 
         return CyncHome(name, home_id, rooms, global_devices)
 
-    def contains_device_id(self, device_id: int) -> bool:
+    def contains_wifi_device_id(self, wifi_device_id: int) -> bool:
         """
         Determines whether a given device ID exists in this home.
         The home is searched recursively, so each room and group within the home will be searched.
         """
 
-        search_result = next((device for device in self.get_flattened_device_list() if device.device_id == device_id),
+        search_result = next((device for device in self.get_flattened_device_list() if device.wifi_device_id == wifi_device_id),
                              None)
 
         return search_result is not None

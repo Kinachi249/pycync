@@ -78,5 +78,5 @@ async def test_refresh_home_info(auth_client, command_client):
     device: CyncDevice = bedroom.devices[0]
     assert device.name == "Bedroom Lamp"
     assert device.parent_home_id == 9000
-    assert device.device_id == 6874
+    assert device.wifi_device_id == 6874
     assert device.isolated_mesh_id == 2
