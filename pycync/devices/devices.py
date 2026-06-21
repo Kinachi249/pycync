@@ -186,6 +186,18 @@ class CyncDevice(CyncControllable):
     def supports_capability(self, capability: CyncCapability) -> bool:
         return capability in self.capabilities
 
+    async def turn_on(self):
+        if not self.supports_capability(CyncCapability.ON_OFF):
+            raise UnsupportedCapabilityError()
+
+        await self._command_client.set_power_state(self, True)
+
+    async def turn_off(self):
+        if not self.supports_capability(CyncCapability.ON_OFF):
+            raise UnsupportedCapabilityError()
+
+        await self._command_client.set_power_state(self, False)
+
 
 class CyncLight(CyncDevice):
     """Class for representing Cync lights."""
@@ -282,18 +294,6 @@ class CyncLight(CyncDevice):
             self._rgb = rgb
         if is_online is not None:
             self.is_online = is_online
-
-    async def turn_on(self):
-        if not self.supports_capability(CyncCapability.ON_OFF):
-            raise UnsupportedCapabilityError()
-
-        await self._command_client.set_power_state(self, True)
-
-    async def turn_off(self):
-        if not self.supports_capability(CyncCapability.ON_OFF):
-            raise UnsupportedCapabilityError()
-
-        await self._command_client.set_power_state(self, False)
 
     async def set_brightness(self, brightness):
         if not self.supports_capability(CyncCapability.DIMMING):
