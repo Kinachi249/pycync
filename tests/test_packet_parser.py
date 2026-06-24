@@ -35,11 +35,11 @@ def test_probe_packet():
     assert parsed_message.data == expected_data
 
 def test_pipe_packet(mocker):
-    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 224, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
-    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 224, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
-    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
-    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 224, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
-    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 224, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 137, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 137, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
+    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 137, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
+    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 137, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_1234,
@@ -54,11 +54,11 @@ def test_pipe_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        1234: device_1234,
-        2345: device_2345,
-        3456: device_3456,
-        4567: device_4567,
-        5678: device_5678
+        device_1234.unique_id: device_1234,
+        device_2345.unique_id: device_2345,
+        device_3456.unique_id: device_3456,
+        device_4567.unique_id: device_4567,
+        device_5678.unique_id: device_5678
     }
 
     assert parsed_message.message_type == MessageType.PIPE.value
@@ -93,7 +93,7 @@ def test_light_sync_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        2345: device_2345
+        device_2345.unique_id: device_2345
     }
 
     assert parsed_message.message_type == MessageType.SYNC.value
