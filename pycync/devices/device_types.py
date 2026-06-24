@@ -23,6 +23,7 @@ class DeviceType(Enum):
     UNDERCABINET_FIXTURES = "UndercabinetFixtures"
     LIGHT_TILE = "LightTile"
     PLUG = "Plug"
+    OUTDOOR_PLUG = "OutdoorPlug"
     SWITCH = "Switch"
     FAN_SPEED_SWITCH = "FanSpeedSwitch"
     WIRE_FREE_SWITCH = "WireFreeSwitch"
@@ -43,7 +44,12 @@ class DeviceType(Enum):
     @classmethod
     def is_plug(cls, device_type_code: int) -> bool:
         resolved_type = DEVICE_TYPES.get(device_type_code, DeviceType.UNKNOWN)
-        return resolved_type == cls.PLUG
+        return resolved_type in {cls.PLUG, cls.OUTDOOR_PLUG}
+
+    @classmethod
+    def is_outdoor_plug(cls, device_type_code: int) -> bool:
+        resolved_type = DEVICE_TYPES.get(device_type_code, DeviceType.UNKNOWN)
+        return resolved_type == cls.OUTDOOR_PLUG
 
 
 DEVICE_TYPES = {
@@ -154,11 +160,11 @@ DEVICE_TYPES = {
     # PlugGen2
     66: DeviceType.PLUG,
     # PlugOutdoorGen1
-    67: DeviceType.PLUG,
+    67: DeviceType.OUTDOOR_PLUG,
     # SingleChipPlug
     68: DeviceType.PLUG,
     # PlugOutdoorGen2
-    69: DeviceType.PLUG,
+    69: DeviceType.OUTDOOR_PLUG,
     # SingleChipFullColorIndoorPremiumLightStrip16ftGen3
     71: DeviceType.INDOOR_LIGHT_STRIP,
     # SingleChipFullColorIndoorPremiumLightStrip32ftGen3
@@ -208,7 +214,7 @@ DEVICE_TYPES = {
     # SingleChipFullColorIndoorValueLightStrip16ftGen3
     110: DeviceType.INDOOR_LIGHT_STRIP,
     # PlugOutdoorGen3
-    111: DeviceType.PLUG,
+    111: DeviceType.OUTDOOR_PLUG,
     # WireFreeSmartSwitchDimmer
     112: DeviceType.WIRE_FREE_SWITCH,
     # WireFreeSmartSwitchDimmerPlusColorController

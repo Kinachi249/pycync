@@ -4,6 +4,8 @@ from typing import List
 
 import pytest
 from pycync.devices import device_storage, CyncControllable
+from pycync.devices.devices import CyncPlug
+from pycync.devices.device_types import DeviceType
 from unittest.mock import patch
 
 from pycync import User, Cync, CyncDevice, CyncHome, CyncRoom, CyncGroup
@@ -83,8 +85,13 @@ async def test_refresh_home_info(auth_client, command_client):
 
     porch: CyncRoom = next(room for room in rooms if room.name == "Front Porch")
     assert porch is not None
-    assert len(porch.devices) == 1
+    assert len(porch.devices) == 2
     assert len(porch.groups) == 0
 
-    plug: CyncControllable = porch.devices[0]
-    assert plug.name == "Right Outlet"
+    outlets = sorted(porch.devices, key=lambda d: d.mesh_group_id)
+    assert all(isinstance(d, CyncPlug) for d in outlets)
+    assert all(d.device_type == DeviceType.OUTDOOR_PLUG for d in outlets)
+    assert outlets[0].name == "Left Outlet"
+    assert outlets[0].mesh_group_id == 1
+    assert outlets[1].name == "Right Outlet"
+    assert outlets[1].mesh_group_id == 2

@@ -51,7 +51,7 @@ def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any],
                 datapoints=device_datapoint_data,
                 command_client=command_client
             )
-        case DeviceType.PLUG:
+        case DeviceType.PLUG | DeviceType.OUTDOOR_PLUG:
             return CyncPlug(
                 is_online,
                 wifi_connected,
@@ -163,6 +163,21 @@ class CyncDevice(CyncControllable):
                     data.get("brightness", 0),
                     data.get("color_temp", 0),
                     data.get("rgb", (0, 0, 0)))
+            case DeviceType.PLUG | DeviceType.OUTDOOR_PLUG:
+                return CyncPlug(
+                    is_online,
+                    wifi_connected,
+                    device_id,
+                    mesh_device_id,
+                    home_id,
+                    name,
+                    device_type_id,
+                    device_type,
+                    mac_address,
+                    product_id,
+                    authorize_code,
+                    is_on=data.get("is_on", False)
+                )
             case _:
                 return CyncDevice(
                     is_online,
