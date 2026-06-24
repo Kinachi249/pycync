@@ -207,18 +207,34 @@ class CyncTcpProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         while len(data) > 0:
-            packet_length = struct.unpack(">I", data[1:5])[0]
-            packet = data[:packet_length + 5]
             try:
-                parsed_packet = packet_parser.parse_packet(packet, self._user.user_id)
-                self._packet_queue.put_nowait(parsed_packet)
-            except NotImplementedError:
-                # Simply ignore the packet for now
-                pass
-            except Exception as ex:
-                self._LOGGER.error("Unhandled exception while parsing packet: {}".format(str(ex)))
-            finally:
-                data = data[packet_length + 5:]
+                if len(data) < 5:
+                    break
+                packet_length = struct.unpack(">I", data[1:5])[0]
+                if packet_length + 5 > len(data):
+                    self._LOGGER.debug(
+                        "Incomplete packet received, waiting for more data. "
+                        "Expected: {}, got: {}".format(packet_length + 5, len(data))
+                    )
+                    break
+                packet = data[:packet_length + 5]
+                try:
+                    parsed_packet = packet_parser.parse_packet(packet, self._user.user_id)
+                    self._packet_queue.put_nowait(parsed_packet)
+                except NotImplementedError:
+                    # Simply ignore the packet for now
+                    pass
+                except Exception as ex:
+                    self._LOGGER.debug(
+                        "Skipping unrecognized packet: {}".format(str(ex))
+                    )
+                finally:
+                    data = data[packet_length + 5:]
+            except struct.error as ex:
+                self._LOGGER.error(
+                    "Fatal packet structure error, resetting buffer: {}".format(str(ex))
+                )
+                break
 
     def _log_in(self):
         login_request_packet = packet_builder.build_login_request_packet(self._user.authorize, self._user.user_id)
