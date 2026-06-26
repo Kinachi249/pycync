@@ -58,7 +58,7 @@ def test_pipe_packet(mocker):
         2345: device_2345,
         3456: device_3456,
         4567: device_4567,
-        5678: device_5678,
+        5678: device_5678
     }
 
     assert parsed_message.message_type == MessageType.PIPE.value
