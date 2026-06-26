@@ -132,7 +132,6 @@ def test_outdoor_plug_sync_packet(mocker):
     assert not left_outlet._is_on
     assert right_outlet._is_on
 
-
 def test_incorrect_length():
     pipe_response = bytearray.fromhex("430000001c0000092901010606001007014cfef8383001141e000000000000")
     with pytest.raises(ValueError, match='Provided packet length did not match actual packet length. Expected: 28, got: 26'):
