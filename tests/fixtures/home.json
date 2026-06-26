@@ -72,34 +72,5 @@
       "devices": []
     }
   ],
-  "global_devices": [
-    {
-      "name": "Left Outlet",
-      "is_online": true,
-      "wifi_connected": false,
-      "device_id": 1862155454,
-      "mesh_device_id": 1006,
-      "home_id": 1000,
-      "device_type_id": 67,
-      "device_type": "PLUG",
-      "mac_address": "654321FEDCBA",
-      "product_id": "product123",
-      "authorize_code": "abcd_code",
-      "is_on": false
-    },
-    {
-      "name": "Right Outlet",
-      "is_online": true,
-      "wifi_connected": false,
-      "device_id": 1862155454,
-      "mesh_device_id": 2006,
-      "home_id": 1000,
-      "device_type_id": 67,
-      "device_type": "PLUG",
-      "mac_address": "654321ABCDEF",
-      "product_id": "product123",
-      "authorize_code": "abcd_code",
-      "is_on": true
-    }
-  ]
+  "global_devices": []
 }

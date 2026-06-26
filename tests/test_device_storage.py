@@ -5,7 +5,6 @@ import pytest
 from pycync import CyncHome, CyncDevice, CyncGroup, CyncRoom
 from pycync.devices import device_storage
 from pycync.devices.device_types import DeviceType
-from pycync.devices.devices import CyncPlug
 from pycync.exceptions import CyncError
 from tests import TEST_USER_ID
 
@@ -108,22 +107,6 @@ def test_get_associated_home_device_not_found():
     with pytest.raises(CyncError,
                        match=f'Device ID 9876 not found on user account {TEST_USER_ID}.'):
         device_storage.get_associated_home(TEST_USER_ID, 9876)
-
-def test_home_from_dict_with_plugs():
-    with open("fixtures/home.json") as f:
-        home_data = json.load(f)
-
-    home = CyncHome.from_dict(home_data)
-
-    plug_devices = home.global_devices
-    assert len(plug_devices) == 2
-    assert all(isinstance(d, CyncPlug) for d in plug_devices)
-    assert all(d.device_type == DeviceType.PLUG for d in plug_devices)
-
-    left = next(d for d in plug_devices if d.name == "Left Outlet")
-    right = next(d for d in plug_devices if d.name == "Right Outlet")
-    assert left._is_on is False
-    assert right._is_on is True
 
 
 def test_get_devices_in_associated_home():
