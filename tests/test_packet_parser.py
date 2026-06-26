@@ -54,11 +54,11 @@ def test_pipe_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        device_1234.unique_id: device_1234,
-        device_2345.unique_id: device_2345,
-        device_3456.unique_id: device_3456,
-        device_4567.unique_id: device_4567,
-        device_5678.unique_id: device_5678
+        1234: device_1234,
+        2345: device_2345,
+        3456: device_3456,
+        4567: device_4567,
+        5678: device_5678,
     }
 
     assert parsed_message.message_type == MessageType.PIPE.value
@@ -93,7 +93,7 @@ def test_light_sync_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        device_2345.unique_id: device_2345
+        2345: device_2345
     }
 
     assert parsed_message.message_type == MessageType.SYNC.value
