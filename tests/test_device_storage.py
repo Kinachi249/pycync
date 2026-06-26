@@ -118,7 +118,7 @@ def test_home_from_dict_with_plugs():
     plug_devices = home.global_devices
     assert len(plug_devices) == 2
     assert all(isinstance(d, CyncPlug) for d in plug_devices)
-    assert all(d.device_type == DeviceType.OUTDOOR_PLUG for d in plug_devices)
+    assert all(d.device_type == DeviceType.PLUG for d in plug_devices)
 
     left = next(d for d in plug_devices if d.name == "Left Outlet")
     right = next(d for d in plug_devices if d.name == "Right Outlet")

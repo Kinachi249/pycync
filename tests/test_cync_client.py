@@ -90,7 +90,7 @@ async def test_refresh_home_info(auth_client, command_client):
 
     outlets = sorted(porch.devices, key=lambda d: d.mesh_group_id)
     assert all(isinstance(d, CyncPlug) for d in outlets)
-    assert all(d.device_type == DeviceType.OUTDOOR_PLUG for d in outlets)
+    assert all(d.device_type == DeviceType.PLUG for d in outlets)
     assert outlets[0].name == "Left Outlet"
     assert outlets[0].mesh_group_id == 1
     assert outlets[1].name == "Right Outlet"

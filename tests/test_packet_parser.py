@@ -118,8 +118,8 @@ def test_bad_checksum(mocker):
 
 def test_outdoor_plug_sync_packet(mocker):
     # Two outlets share isolated_mesh_id=6 but differ by mesh_group_id (1=left, 2=right)
-    left_outlet = CyncPlug(True, True, 1234, 1006, 5432, "Left Outlet", 67, DeviceType.OUTDOOR_PLUG, "654321FEDCBA", "ID1", "Code")
-    right_outlet = CyncPlug(True, True, 1234, 2006, 5432, "Right Outlet", 67, DeviceType.OUTDOOR_PLUG, "654321ABCDEF", "ID1", "Code")
+    left_outlet = CyncPlug(True, True, 1234, 1006, 5432, "Left Outlet", 67, DeviceType.PLUG, "654321FEDCBA", "ID1", "Code")
+    right_outlet = CyncPlug(True, True, 1234, 2006, 5432, "Right Outlet", 67, DeviceType.PLUG, "654321ABCDEF", "ID1", "Code")
 
     mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[left_outlet, right_outlet])
 
