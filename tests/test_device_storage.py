@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from pycync import CyncHome, CyncDevice, CyncGroup, CyncRoom
@@ -107,7 +105,6 @@ def test_get_associated_home_device_not_found():
     with pytest.raises(CyncError,
                        match=f'Device ID 9876 not found on user account {TEST_USER_ID}.'):
         device_storage.get_associated_home(TEST_USER_ID, 9876)
-
 
 def test_get_devices_in_associated_home():
     device_storage.set_user_homes(TEST_USER_ID, [home_1, home_2])
