@@ -74,8 +74,6 @@ class CommandClient:
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
         hub_device = await self._fetch_hub_device(associated_home)
 
-        print(controllable.mesh_reference_id, controllable.mesh_group_id)
-
         await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, controllable.mesh_group_id, is_on)
 
     async def set_brightness(self, controllable: CyncControllable, brightness: int):
