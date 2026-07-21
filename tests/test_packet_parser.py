@@ -2,6 +2,7 @@ import pytest
 
 from pycync import CyncLight
 from pycync.devices.device_types import DeviceType
+from pycync.devices.devices import CyncPlug
 from pycync.devices.groups import CyncHome
 from pycync.tcp import packet_parser
 from pycync.tcp.packet import MessageType, PipeCommandCode
@@ -34,11 +35,11 @@ def test_probe_packet():
     assert parsed_message.data == expected_data
 
 def test_pipe_packet(mocker):
-    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 224, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
-    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 224, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
-    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
-    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 224, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
-    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 224, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 137, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1","Code")
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 137, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
+    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 137, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
+    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 137, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
 
     mocked_devices = [
         device_1234,
@@ -53,11 +54,11 @@ def test_pipe_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        1234: device_1234,
-        2345: device_2345,
-        3456: device_3456,
-        4567: device_4567,
-        5678: device_5678
+        "5432-4":   device_1234,
+        "5432-7":   device_2345,
+        "5432-2":   device_3456,
+        "5432-232": device_4567,
+        "5432-30":  device_5678,
     }
 
     assert parsed_message.message_type == MessageType.PIPE.value
@@ -92,7 +93,7 @@ def test_light_sync_packet(mocker):
     parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
 
     expected_device_data = {
-        2345: device_2345
+        "5432-7": device_2345
     }
 
     assert parsed_message.message_type == MessageType.SYNC.value
@@ -114,6 +115,22 @@ def test_bad_checksum(mocker):
 
     with pytest.raises(ValueError, match='Invalid checksum for inner packet frame'):
         packet_parser.parse_packet(pipe_response, TEST_USER_ID)
+
+def test_outdoor_plug_sync_packet(mocker):
+    # Two outlets share isolated_mesh_id=6 but differ by mesh_group_id (1=left, 2=right)
+    left_outlet = CyncPlug(True, True, 1234, 1006, 5432, "Left Outlet", 67, DeviceType.PLUG, "654321FEDCBA", "ID1", "Code")
+    right_outlet = CyncPlug(True, True, 1234, 2006, 5432, "Right Outlet", 67, DeviceType.PLUG, "654321ABCDEF", "ID1", "Code")
+
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[left_outlet, right_outlet])
+
+    # Packet: device_id=1234, marker 010106, one entry: mesh_id=6, is_on=1, outlet_indicator=2 (right outlet on)
+    sync_response = bytearray.fromhex("4300000011000004d201010600000706010200000000")
+    parsed_message = packet_parser.parse_packet(sync_response, TEST_USER_ID)
+
+    assert parsed_message.message_type == MessageType.SYNC.value
+    assert parsed_message.device_id == 1234
+    assert not left_outlet._is_on
+    assert right_outlet._is_on
 
 def test_incorrect_length():
     pipe_response = bytearray.fromhex("430000001c0000092901010606001007014cfef8383001141e000000000000")
