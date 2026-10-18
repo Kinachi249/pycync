@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+import logging
 import struct
 
 from ..devices import device_storage
@@ -12,6 +13,8 @@ from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
 
 if TYPE_CHECKING:
     from pycync.devices import CyncDevice
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
@@ -65,7 +68,12 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
 
             resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
             if len(resolved_devices) == 0:
-                raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+                # A device on the mesh that we have no record for (Bluetooth-only mesh devices,
+                # devices removed from the account, or ones we failed to map) is not a reason to
+                # throw away every other device's state in this packet.
+                _LOGGER.debug("Unable to resolve device ID for mesh ID: %s - skipping it", mesh_id)
+                packet = packet[info_length + 1:]
+                continue
             if DeviceType.is_light(resolved_devices[0].device_type_id):
                 for device in resolved_devices:
                     device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
@@ -140,7 +148,12 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
         resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
         if len(resolved_devices) == 0:
-            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+            # See _parse_sync_packet: one unmapped mesh device must not discard the
+            # status of every other device in the page (this page is also what
+            # CommandClient uses to recompute each device's is_online flag).
+            _LOGGER.debug("Unable to resolve device ID for mesh ID: %s - skipping it", mesh_id)
+            trimmed_bytes = trimmed_bytes[24:]
+            continue
 
         if DeviceType.is_light(resolved_devices[0].device_type_id):
             is_online = device_data[3]

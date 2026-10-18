@@ -136,3 +136,91 @@ def test_incorrect_length():
     pipe_response = bytearray.fromhex("430000001c0000092901010606001007014cfef8383001141e000000000000")
     with pytest.raises(ValueError, match='Provided packet length did not match actual packet length. Expected: 28, got: 26'):
         packet_parser.parse_packet(pipe_response, TEST_USER_ID)
+
+
+def _build_status_page(entries: list[tuple[int, bool, bool]]) -> bytearray:
+    """Payload of a QUERY_DEVICE_STATUS_PAGES response.
+
+    Six byte header (device count at offset 4, little endian) followed by one
+    24 byte record per device: mesh id (LE u16) at 0, is_online at 3, is_on at 8,
+    brightness at 12, colour mode at 16, RGB at 20:23.
+    """
+    page = bytearray(4)
+    page += len(entries).to_bytes(2, "little")
+    for mesh_id, is_on, is_online in entries:
+        device = bytearray(24)
+        device[0:2] = mesh_id.to_bytes(2, "little")
+        device[3] = int(is_online)
+        device[8] = int(is_on)
+        device[12] = 60
+        device[16] = 5
+        device[20:23] = bytes((255, 0, 0))
+        page += device
+    return page
+
+
+def _sync_record(mesh_id: int, is_on: bool = True) -> bytearray:
+    """One device entry inside a SYNC ('010106') packet: 11 bytes of payload
+    length 16, padded to the 20 bytes the parser walks per device."""
+    record = bytearray(b"\x06\x00\x10")
+    record += bytes((mesh_id, int(is_on), 0x4C, 0xFE, 0xF8, 0x38, 0x30))
+    return record + bytearray(10)
+
+
+def test_status_page_with_unknown_mesh_device():
+    """An unmapped mesh device must not discard the devices beside it.
+
+    Regression test for #17 (defect 2). The unknown mesh id used to raise, which
+    threw away the whole page - including the status of every device that *is*
+    mapped. In Home Assistant that page is also what CommandClient reads to
+    recompute each device's is_online flag, so one unknown device could leave an
+    entity showing a stale state forever and never mark it unavailable.
+    """
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 137, DeviceType.LIGHT, "123456ABCDEF", "ID1", "Code")
+
+    page = _build_status_page([(999, True, True), (4, True, True)])
+    parsed_data = packet_parser._parse_device_status_pages_command(page, [device_1234])
+
+    assert parsed_data == {"5432-4": device_1234}
+    assert device_1234.is_on is True
+    assert device_1234.is_online is True
+
+
+def test_status_page_with_only_unknown_mesh_devices():
+    """A page of nothing but unmapped mesh devices yields no device data instead
+    of raising, so callers see "nothing reported" rather than a parse failure."""
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 137, DeviceType.LIGHT, "123456ABCDEF", "ID1", "Code")
+
+    page = _build_status_page([(999, True, True)])
+    parsed_data = packet_parser._parse_device_status_pages_command(page, [device_1234])
+
+    assert parsed_data == {}
+
+
+def test_sync_packet_with_unknown_mesh_device(mocker):
+    """Same for the SYNC path: an unmapped mesh device no longer raises, it is
+    simply skipped, so the packet is parsed instead of failing outright."""
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1", "Code")
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[device_2345])
+
+    payload = (2345).to_bytes(4, "big") + b"\x01\x01\x06" + _sync_record(99)
+    sync_packet = bytes((0x43,)) + len(payload).to_bytes(4, "big") + payload
+
+    parsed_message = packet_parser.parse_packet(bytearray(sync_packet), TEST_USER_ID)
+
+    assert parsed_message.message_type == MessageType.SYNC.value
+    assert parsed_message.data == {}
+
+
+def test_sync_packet_with_known_mesh_device_is_unchanged(mocker):
+    """Guard rail for the change above: a mapped mesh device still reports."""
+    device_2345 = CyncLight(True, True, 2345, 7, 5432, "Device 2", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1", "Code")
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[device_2345])
+
+    payload = (2345).to_bytes(4, "big") + b"\x01\x01\x06" + _sync_record(7)
+    sync_packet = bytes((0x43,)) + len(payload).to_bytes(4, "big") + payload
+
+    parsed_message = packet_parser.parse_packet(bytearray(sync_packet), TEST_USER_ID)
+
+    assert parsed_message.data == {"5432-7": device_2345}
+    assert device_2345.is_on is True
