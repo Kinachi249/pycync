@@ -33,6 +33,9 @@ class CommandClient:
         self._device_statuses_updated = False
         self._tcp_manager: TcpManager = None
 
+        self._online_this_poll: set[str] = set()
+        self._online_last_poll: set[str] = set()
+
     def start_connection(self, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
         self._tcp_manager = TcpManager(self._user, self.on_message_received, ssl_context, ssl_context_no_verify)
 
@@ -51,8 +54,10 @@ class CommandClient:
             case MessageType.PIPE.value:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
                     updated_devices: dict[str, CyncDevice] = parsed_message.data
+                    self._online_this_poll.update(updated_devices)
+                    online = self._online_this_poll | self._online_last_poll
                     for device in device_storage.get_flattened_devices(self._user.user_id):
-                        device.is_online = device.unique_id in updated_devices
+                        device.is_online = device.unique_id in online
                     await self._send_update_to_listener(parsed_message.data)
 
     async def probe_devices(self):
@@ -67,6 +72,7 @@ class CommandClient:
             hub_device = await self._fetch_hub_device(home)
             hub_devices.append(hub_device)
 
+        self._online_last_poll, self._online_this_poll = self._online_this_poll, set()
         await self._tcp_manager.update_mesh_devices(hub_devices)
 
     async def set_power_state(self, controllable: CyncControllable, is_on: bool):
