@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import asyncio
 import logging
+import time
 
 from .packet import MessageType, ParsedMessage, PipeCommandCode
 from .tcp_manager import TcpManager
@@ -22,6 +23,12 @@ from pycync.user import User
 if TYPE_CHECKING:
     from pycync.devices import CyncDevice
     from pycync.devices.groups import CyncHome
+
+
+# How long a command waits for the first Wi-Fi probe answers before falling back to a hub the cloud lists as online.
+# Probe answers have been seen to take 30-40 s after a (re)connect; waiting for them stalled every command sent in
+# that window.
+HUB_PROBE_WAIT_SECONDS = 5
 
 
 class CommandClient:
@@ -141,12 +148,20 @@ class CommandClient:
         A hub device is a device that is actively connected to Wi-Fi, and can act as a proxy into the Bluetooth mesh.
         """
 
-        while not self._device_statuses_updated:
-            await asyncio.sleep(1)
+        deadline = time.monotonic() + HUB_PROBE_WAIT_SECONDS
+        while not self._device_statuses_updated and time.monotonic() < deadline:
+            await asyncio.sleep(0.25)
             self._LOGGER.debug("Awaiting probe initialization before fetching hub.")
 
-        hub_device = next((device for device in home.get_flattened_device_list() if
-                           device.wifi_connected and CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities), None)
+        proxies = [device for device in home.get_flattened_device_list()
+                   if CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities]
+        hub_device = next((device for device in proxies if device.wifi_connected), None)
+        if hub_device is None and not self._device_statuses_updated:
+            # No probe answers yet: use a hub-capable device the cloud reports as online rather than holding the
+            # command until the probes come back.
+            hub_device = next((device for device in proxies if device.is_online), None)
+            if hub_device is not None:
+                self._LOGGER.debug("Probe answers pending; using %s, online per the cloud, as hub.", hub_device.name)
         if hub_device is None:
             raise NoHubConnectedError
 
