@@ -3,12 +3,15 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+import logging
 import struct
 
 from ..devices import device_storage
 from ..devices.device_types import DeviceType
 from .packet import ParsedMessage, ParsedInnerFrame, MessageType, PipeCommandCode, generate_checksum
 from pycync.devices.capabilities import DEVICE_CAPABILITIES, CyncCapability
+
+_LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pycync.devices import CyncDevice
@@ -58,29 +61,33 @@ def _parse_sync_packet(packet: bytearray, is_response, version, user_id) -> Pars
 
     if packet[4:7].hex() == '010106' and is_mesh_device:
         packet = packet[7:]
+        # The payload is a list of entries, each a 1-byte marker, a 2-byte length, then that many bytes of
+        # device state. A hub reports several devices in one packet after group or rapid commands.
         while len(packet) > 3:
             info_length = struct.unpack(">H", packet[1:3])[0] & 0x0FFF
-            packet = packet[3:info_length + 3]
-            mesh_id = packet[0]
+            entry = packet[3:info_length + 3]
+            packet = packet[info_length + 3:]
+            if len(entry) < 7:
+                break
+            mesh_id = entry[0]
 
             resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
             if len(resolved_devices) == 0:
-                raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+                _LOGGER.debug("Skipping state for unknown mesh ID %s", mesh_id)
+                continue
             if DeviceType.is_light(resolved_devices[0].device_type_id):
                 for device in resolved_devices:
-                    device.update_state(bool(packet[1]), packet[2], packet[3], (packet[4], packet[5], packet[6]))
+                    device.update_state(bool(entry[1]), entry[2], entry[3], (entry[4], entry[5], entry[6]))
                     updated_device_data[device.unique_id] = device
             elif DeviceType.is_plug(resolved_devices[0].device_type_id):
                 for device in resolved_devices:
                     if device.mesh_group_id > 0:
-                        is_on = device.mesh_group_id == packet[2] or packet[2] == 3
+                        is_on = device.mesh_group_id == entry[2] or entry[2] == 3
                     else:
-                        is_on = bool(packet[1])
+                        is_on = bool(entry[1])
 
                     device.update_state(is_on)
                     updated_device_data[device.unique_id] = device
-
-            packet = packet[info_length + 1:]
 
         return ParsedMessage(MessageType.SYNC.value, is_response, device_id, updated_device_data, version)
 

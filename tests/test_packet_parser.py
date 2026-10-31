@@ -103,6 +103,43 @@ def test_light_sync_packet(mocker):
     assert parsed_message.command_code is None
     assert parsed_message.data == expected_device_data
 
+def test_multi_entry_light_sync_packet(mocker):
+    # Captured from a GE Cync plug acting as hub after turning several bulbs on in quick succession, with the
+    # hub's device ID replaced by 2345. Two entries: mesh IDs 6 and 2, each on at brightness 5.
+    hub = CyncLight(True, True, 2345, 7, 5432, "Hub", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1", "Code")
+    bulb_6 = CyncLight(True, False, None, 6, 5432, "Bulb 6", 137, DeviceType.LIGHT, None, None, None)
+    bulb_2 = CyncLight(True, False, None, 2, 5432, "Bulb 2", 137, DeviceType.LIGHT, None, None, None)
+    bulb_6.update_state(False, 100)
+    bulb_2.update_state(False, 100)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub, bulb_6, bulb_2])
+
+    sync_response = bytearray.fromhex("430000002d00000929010106060010060105ff00000001ff0f000000000000070010020105ff00000001ff0f000000000000")
+    parsed_message = packet_parser.parse_packet(sync_response, TEST_USER_ID)
+
+    assert parsed_message.message_type == MessageType.SYNC.value
+    assert parsed_message.device_id == 2345
+    assert parsed_message.data == {"5432-6": bulb_6, "5432-2": bulb_2}
+    assert bulb_6._is_on is True and bulb_6._brightness == 5
+    assert bulb_2._is_on is True and bulb_2._brightness == 5
+
+def test_sync_packet_skips_unknown_mesh_id(mocker):
+    # Three entries with an unknown mesh ID (9) in the middle: the known devices on either side still update.
+    hub = CyncLight(True, True, 2345, 7, 5432, "Hub", 137, DeviceType.LIGHT, "223456ABCDEF", "ID1", "Code")
+    bulb_6 = CyncLight(True, False, None, 6, 5432, "Bulb 6", 137, DeviceType.LIGHT, None, None, None)
+    bulb_2 = CyncLight(True, False, None, 2, 5432, "Bulb 2", 137, DeviceType.LIGHT, None, None, None)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub, bulb_6, bulb_2])
+
+    sync_response = bytearray.fromhex(
+        "4300000040" "00000929" "010106"
+        "060010" "060132ff00000001ff0f000000000000"
+        "070010" "090164ff00000001ff0f000000000000"
+        "080010" "020000ff00000001ff0f000000000000")
+    parsed_message = packet_parser.parse_packet(sync_response, TEST_USER_ID)
+
+    assert parsed_message.data == {"5432-6": bulb_6, "5432-2": bulb_2}
+    assert bulb_6._is_on is True and bulb_6._brightness == 0x32
+    assert bulb_2._is_on is False
+
 def test_bad_checksum(mocker):
     device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
 
