@@ -8,7 +8,7 @@ from pycync.devices.devices import CyncPlug
 from pycync.devices.device_types import DeviceType
 from unittest.mock import patch
 
-from pycync import User, Cync, CyncDevice, CyncHome, CyncRoom, CyncGroup
+from pycync import User, Cync, CyncDevice, CyncHome, CyncRoom, CyncGroup, CyncLight
 
 MOCKED_USER = User(
     "test_token",
@@ -72,7 +72,17 @@ async def test_refresh_home_info(auth_client, command_client):
     office_lamp: CyncGroup = office.groups[0]
     assert office_lamp is not None
     assert office_lamp.name == "Office Lamp"
-    assert len(office_lamp.devices) == 0
+    assert len(office_lamp.devices) == 1
+
+    # Bluetooth-only device: no switchID in the property response and no entry in the account device list,
+    # but still reachable through a Wi-Fi hub by mesh ID.
+    office_light: CyncDevice = office_lamp.devices[0]
+    assert isinstance(office_light, CyncLight)
+    assert office_light.name == "Office Light"
+    assert office_light.device_id == 1234567890004
+    assert office_light.bluetooth_only is True
+    assert office_light.isolated_mesh_id == 4
+    assert office_light.is_online is False
 
     bedroom: CyncRoom = next(room for room in rooms if room.name == "Bedroom")
     assert bedroom is not None
@@ -81,6 +91,7 @@ async def test_refresh_home_info(auth_client, command_client):
     assert device.name == "Bedroom Lamp"
     assert device.parent_home_id == 1234567890
     assert device.device_id == 6874
+    assert device.bluetooth_only is False
     assert device.isolated_mesh_id == 2
 
     porch: CyncRoom = next(room for room in rooms if room.name == "Front Porch")

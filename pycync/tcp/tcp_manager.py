@@ -144,6 +144,10 @@ class TcpManager:
         """Probe all account devices to see which ones are responsive over Wi-Fi."""
 
         for device in devices:
+            if device.bluetooth_only:
+                # No Wi-Fi radio to probe, it is reached through a hub. Probing its stand-in ID is also unsafe:
+                # the server has never issued that ID.
+                continue
             probe_device_packet = packet_builder.build_probe_request_packet(device.device_id)
             await self._send_request(probe_device_packet)
 
