@@ -35,6 +35,8 @@ def parse_packet(packet: bytearray, user_id: int) -> ParsedMessage:
             return _parse_sync_packet(packet, is_response, version, user_id)
         case MessageType.PIPE.value:
             return _parse_pipe_packet(packet, packet_length, is_response, version, user_id)
+        case MessageType.PIPE_SYNC.value:
+            return _parse_pipe_sync_packet(packet, packet_length, is_response, version, user_id)
         case MessageType.DISCONNECT.value:
             return ParsedMessage(MessageType.DISCONNECT.value, is_response, user_id, packet[0], version)
         case _:
@@ -101,6 +103,23 @@ def _parse_pipe_packet(packet: bytearray, length, is_response, version, user_id)
                          inner_frame.command_type)
 
 
+def _parse_pipe_sync_packet(packet: bytearray, length, is_response, version, user_id) -> ParsedMessage:
+    """
+    PIPE_SYNC packets are pushed by a hub, one per mesh device, right after that device changes state
+    (for example straight after a command). Same layout as a PIPE packet.
+    """
+    device_id = struct.unpack(">I", packet[0:4])[0]
+    device_list = device_storage.get_associated_home_devices(user_id, device_id)
+
+    if length > 7 and packet[7] == 0x7e:
+        inner_frame = _parse_inner_packet_frame(packet[7:], device_list)
+    else:
+        raise NotImplementedError
+
+    return ParsedMessage(MessageType.PIPE_SYNC.value, is_response, device_id, inner_frame.data, version,
+                         inner_frame.command_type)
+
+
 def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInnerFrame:
     if frame_bytes[0] != 0x7e or frame_bytes[-1] != 0x7e:
         raise ValueError("Invalid delimiters for inner packet frame")
@@ -120,6 +139,8 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
     match command_code:
         case PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
             parsed_data = _parse_device_status_pages_command(frame_bytes[4: 4 + data_length], device_list)
+        case PipeCommandCode.DEVICE_STATUS.value:
+            parsed_data = _parse_device_status_command(frame_bytes[4: 4 + data_length], device_list)
         case _:
             raise NotImplementedError
 
@@ -162,6 +183,31 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
                 updated_device_data[device.unique_id] = device
 
         trimmed_bytes = trimmed_bytes[24:]
+
+    return updated_device_data
+
+
+def _parse_device_status_command(data_bytes: bytearray, device_list) -> dict[str, CyncDevice]:
+    """
+    One light's state, as pushed in a PIPE_SYNC packet. Observed layout (19 bytes):
+      [0] counter, [1:3] 22 11, [3:5] mesh ID (little-endian), [5:7] mesh ID again, [7:10] db 11 02,
+      [10] unknown, [11] on/off, [12] brightness, [13] color mode / temperature, [14:17] RGB, [17:19] 00 00
+    Bytes 11-16 match the state bytes of a SYNC entry. The same command code also carries other
+    payloads (seen: 22 33 ... ea 11 ...); anything not in the shape above is ignored.
+    """
+    updated_device_data = {}
+    if len(data_bytes) < 17 or data_bytes[1:3] != b"\x22\x11" or data_bytes[7:10] != b"\xdb\x11\x02":
+        return updated_device_data
+
+    mesh_id = struct.unpack("<H", data_bytes[3:5])[0]
+    resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
+    if len(resolved_devices) == 0 or not DeviceType.is_light(resolved_devices[0].device_type_id):
+        return updated_device_data
+
+    for device in resolved_devices:
+        device.update_state(bool(data_bytes[11]), data_bytes[12], data_bytes[13],
+                            (data_bytes[14], data_bytes[15], data_bytes[16]))
+        updated_device_data[device.unique_id] = device
 
     return updated_device_data
 

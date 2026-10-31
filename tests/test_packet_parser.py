@@ -103,6 +103,62 @@ def test_light_sync_packet(mocker):
     assert parsed_message.command_code is None
     assert parsed_message.data == expected_device_data
 
+def _pipe_sync_devices():
+    hub = CyncPlug(True, True, 2345, 15, 5432, "Hub Plug", 172, DeviceType.PLUG, "223456ABCDEF", "ID1", "Code")
+    bulb_6 = CyncLight(True, False, None, 6, 5432, "Bulb 6", 17, DeviceType.LIGHT, None, None, None)
+    return hub, bulb_6
+
+def test_pipe_sync_device_status_on(mocker):
+    # Captured from a GE Cync plug hub right after a turn-on command (hub device ID replaced by 2345):
+    # mesh ID 6, on, brightness 5.
+    hub, bulb_6 = _pipe_sync_devices()
+    bulb_6.update_state(False, 100)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub, bulb_6])
+
+    packet = bytearray.fromhex("830000002500000929005f007e09010000fadb130060221106000600db1102010105ff0000000000817e")
+    parsed_message = packet_parser.parse_packet(packet, TEST_USER_ID)
+
+    assert parsed_message.message_type == MessageType.PIPE_SYNC.value
+    assert parsed_message.device_id == 2345
+    assert parsed_message.command_code == PipeCommandCode.DEVICE_STATUS.value
+    assert parsed_message.data == {"5432-6": bulb_6}
+    assert bulb_6._is_on is True and bulb_6._brightness == 5
+
+def test_pipe_sync_device_status_off(mocker):
+    # Same bulb ten seconds later, after a turn-off command: off, brightness kept at 5.
+    hub, bulb_6 = _pipe_sync_devices()
+    bulb_6.update_state(True, 5)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub, bulb_6])
+
+    packet = bytearray.fromhex("83000000250000092900680 07e11010000fadb130068221106000600db1102010005ff0000000000887e".replace(" ", ""))
+    parsed_message = packet_parser.parse_packet(packet, TEST_USER_ID)
+
+    assert parsed_message.data == {"5432-6": bulb_6}
+    assert bulb_6._is_on is False and bulb_6._brightness == 5
+
+def test_pipe_sync_other_payload_ignored(mocker):
+    # The same command code also carries a different 20-byte payload (22 33 ... ea 11 ...); it is not light
+    # state, so nothing is updated.
+    hub, bulb_6 = _pipe_sync_devices()
+    bulb_6.update_state(True, 50)
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub, bulb_6])
+
+    packet = bytearray.fromhex("830000002600000929005e007e29000000fadb14001d22330f00ffffea11020fa10108010000000000257e")
+    parsed_message = packet_parser.parse_packet(packet, TEST_USER_ID)
+
+    assert parsed_message.message_type == MessageType.PIPE_SYNC.value
+    assert parsed_message.data == {}
+    assert bulb_6._is_on is True and bulb_6._brightness == 50
+
+def test_pipe_sync_unknown_mesh_id_ignored(mocker):
+    hub, _ = _pipe_sync_devices()
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices", return_value=[hub])
+
+    packet = bytearray.fromhex("830000002500000929005f007e09010000fadb130060221106000600db1102010105ff0000000000817e")
+    parsed_message = packet_parser.parse_packet(packet, TEST_USER_ID)
+
+    assert parsed_message.data == {}
+
 def test_bad_checksum(mocker):
     device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
 

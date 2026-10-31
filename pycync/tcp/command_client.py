@@ -48,6 +48,9 @@ class CommandClient:
                 self._device_statuses_updated = True
             case MessageType.SYNC.value:
                 await self._send_update_to_listener(parsed_message.data)
+            case MessageType.PIPE_SYNC.value:
+                if parsed_message.command_code == PipeCommandCode.DEVICE_STATUS.value and parsed_message.data:
+                    await self._send_update_to_listener(parsed_message.data)
             case MessageType.PIPE.value:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
                     updated_devices: dict[str, CyncDevice] = parsed_message.data
