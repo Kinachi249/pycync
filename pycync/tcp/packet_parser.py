@@ -128,11 +128,15 @@ def _parse_inner_packet_frame(frame_bytes: bytearray, device_list) -> ParsedInne
 
 def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> dict[int, CyncDevice]:
     updated_device_data = {}
-    if len(data_bytes) < 5:
+    if len(data_bytes) < 6:
         return updated_device_data
 
     device_count = struct.unpack("<H", data_bytes[4:6])[0]
     trimmed_bytes = data_bytes[6:]
+    # Other payloads share this command code (seen: 22 33 ... ea 11 ..., 20 bytes, whose bytes 4-5 read as a
+    # count of 65280). A real page carries 24 bytes per entry, so anything shorter is not a status page.
+    if len(trimmed_bytes) < device_count * 24:
+        return updated_device_data
 
     for i in range(device_count):
         device_data = trimmed_bytes[0:24]
@@ -140,7 +144,10 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
         resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
         if len(resolved_devices) == 0:
-            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+            # A mesh ID that isn't on the account (e.g. a device added or removed since login) must not
+            # discard the rest of the page: every other device would never be marked online.
+            trimmed_bytes = trimmed_bytes[24:]
+            continue
 
         if DeviceType.is_light(resolved_devices[0].device_type_id):
             is_online = device_data[3]

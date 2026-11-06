@@ -68,6 +68,58 @@ def test_pipe_packet(mocker):
     assert parsed_message.command_code is PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value
     assert parsed_message.data == expected_device_data
 
+def test_pipe_packet_skips_unknown_mesh_id(mocker):
+    # Same status page as test_pipe_packet, but mesh ID 7 (second entry) is not on the account.
+    # The other four devices must still be parsed instead of the whole page being dropped.
+    device_1234 = CyncLight(True, True, 1234, 4, 5432, "Device 1", 137, DeviceType.LIGHT, "123456ABCDEF", "ID1","Code")
+    device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 137, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
+    device_4567 = CyncLight(True, True, 4567, 232, 5432, "Device 4", 137, DeviceType.LIGHT, "423456ABCDEF", "ID1","Code")
+    device_5678 = CyncLight(True, True, 5678, 30, 5432, "Device 5", 137, DeviceType.LIGHT, "523456ABCDEF", "ID1","Code")
+    mocker.patch("pycync.devices.device_storage.get_associated_home_devices",
+                 return_value=[device_1234, device_3456, device_4567, device_5678])
+
+    pipe_response = bytearray.fromhex("730000009100000d8002e5007e01010000f9527d5e000500000005000400890100008901010000005000000039000000d796ff0007000001000000010000000000000000fe000000f8383000020000010000000101000000410000001e00000000000000e800000100000001010000005000000039000000000000001e0000010000000101000000500000003900000000000000d17e")
+    parsed_message = packet_parser.parse_packet(pipe_response, TEST_USER_ID)
+
+    assert parsed_message.command_code is PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value
+    assert parsed_message.data == {
+        "5432-4":   device_1234,
+        "5432-2":   device_3456,
+        "5432-232": device_4567,
+        "5432-30":  device_5678,
+    }
+
+def test_device_status_pages_ignores_short_non_page_payload():
+    # Captured 20-byte payload that arrives under the status-pages command code. Bytes 4-5 read as a count of
+    # 65280 and bytes 6-7 as "mesh ID" 60159; it is not a status page and must be ignored without raising.
+    bulb = CyncLight(False, False, None, 1, 5432, "Bulb 1", 137, DeviceType.LIGHT, None, None, None)
+    for payload in ("1622331100ffffea110211a10101010000000000", "4501001100ffffea110211a10101010000000000"):
+        assert packet_parser._parse_device_status_pages_command(bytearray.fromhex(payload), [bulb]) == {}
+    assert bulb.is_online is False
+
+def test_device_status_pages_unknown_mesh_id_keeps_later_entries():
+    # A captured 16-entry status page (one plug, mesh 15, then fifteen bulbs). Mesh 8, the first bulb entry,
+    # is left off the account: every entry after it must still parse and keep its online flag.
+    page = bytearray.fromhex(
+        "1000000010000f00ac010000ac010000000064000000000000000000000008000001000000010100000005000000ff00"
+        "0000000000000100000100000001010000004c000000ff0000000000000005000001000000010100000005000000ff00"
+        "00000000000004000001000000010100000005000000ff000000000000000a000001000000010100000020000000ff00"
+        "0000000000000b000001000000010100000020000000ff0000000000000006000001000000010100000005000000ff00"
+        "00000000000002000001000000010100000005000000ff0000000000000007000001000000010100000005000000ff00"
+        "00000000000003000001000000010100000005000000ff000000000000000c000001000000010100000064000000ff00"
+        "0000000000000e000001000000010100000064000000ff000000000000000d000001000000010100000064000000ff00"
+        "00000000000009000001000000010100000005000000ff00000000000000100000010000000100000000000000000000"
+        "000000000000")
+    bulbs = {mesh: CyncLight(False, False, None, mesh, 5432, f"Bulb {mesh}", 137, DeviceType.LIGHT, None, None, None)
+             for mesh in range(1, 17) if mesh not in (8, 15)}
+
+    parsed = packet_parser._parse_device_status_pages_command(page, list(bulbs.values()))
+
+    assert set(parsed) == {f"5432-{mesh}" for mesh in bulbs}
+    assert all(bulb.is_online for bulb in bulbs.values())
+    assert bulbs[1]._is_on is True and bulbs[1]._brightness == 0x4c
+    assert bulbs[16]._is_on is False
+
 def test_thermostat_sync_packet(mocker):
     device_3456 = CyncLight(True, True, 3456, 2, 5432, "Device 3", 224, DeviceType.LIGHT, "323456ABCDEF", "ID1","Code")
 
