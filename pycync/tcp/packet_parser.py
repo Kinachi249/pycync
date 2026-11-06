@@ -140,7 +140,10 @@ def _parse_device_status_pages_command(data_bytes: bytearray, device_list) -> di
 
         resolved_devices: list[CyncDevice] = [device for device in device_list if device.isolated_mesh_id == mesh_id]
         if len(resolved_devices) == 0:
-            raise ValueError("Unable to resolve device ID for mesh ID: {}".format(mesh_id))
+            # A mesh ID that isn't on the account (e.g. a device added or removed since login) must not
+            # discard the rest of the page: every other device would never be marked online.
+            trimmed_bytes = trimmed_bytes[24:]
+            continue
 
         if DeviceType.is_light(resolved_devices[0].device_type_id):
             is_online = device_data[3]
