@@ -89,6 +89,14 @@ def test_pipe_packet_skips_unknown_mesh_id(mocker):
         "5432-30":  device_5678,
     }
 
+def test_device_status_pages_ignores_short_non_page_payload():
+    # Captured 20-byte payload that arrives under the status-pages command code. Bytes 4-5 read as a count of
+    # 65280 and bytes 6-7 as "mesh ID" 60159; it is not a status page and must be ignored without raising.
+    bulb = CyncLight(False, False, None, 1, 5432, "Bulb 1", 137, DeviceType.LIGHT, None, None, None)
+    for payload in ("1622331100ffffea110211a10101010000000000", "4501001100ffffea110211a10101010000000000"):
+        assert packet_parser._parse_device_status_pages_command(bytearray.fromhex(payload), [bulb]) == {}
+    assert bulb.is_online is False
+
 def test_device_status_pages_unknown_mesh_id_keeps_later_entries():
     # A captured 16-entry status page (one plug, mesh 15, then fifteen bulbs). Mesh 8, the first bulb entry,
     # is left off the account: every entry after it must still parse and keep its online flag.
