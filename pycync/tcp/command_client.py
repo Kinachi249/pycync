@@ -51,9 +51,13 @@ class CommandClient:
             case MessageType.PIPE.value:
                 if parsed_message.command_code == PipeCommandCode.QUERY_DEVICE_STATUS_PAGES.value:
                     updated_devices: dict[str, CyncDevice] = parsed_message.data
-                    for device in device_storage.get_flattened_devices(self._user.user_id):
-                        device.is_online = device.unique_id in updated_devices
-                    await self._send_update_to_listener(parsed_message.data)
+                    # Each device in a status page carries its own online flag, which the parser has already applied.
+                    # A device missing from a page is not offline: a hub returns at most 15 devices per page and
+                    # ignores the requested offset, a page only covers the answering hub's home, and other payloads
+                    # share this command code. Marking every unlisted device offline made Home Assistant show them
+                    # unavailable on every poll.
+                    if updated_devices:
+                        await self._send_update_to_listener(updated_devices)
 
     async def probe_devices(self):
         await self._tcp_manager.probe_devices(device_storage.get_flattened_devices(self._user.user_id))
