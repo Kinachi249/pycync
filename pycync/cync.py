@@ -79,15 +79,25 @@ class Cync:
 
             mesh_device_info = await self._auth._send_user_request(
                 f"{REST_API_BASE_URL}/v2/product/{home_json["product_id"]}/device/{home_json["id"]}/property")
-            mesh_devices = [mesh_device for mesh_device in mesh_device_info.get("bulbsArray", []) if
-                            "switchID" in mesh_device]
-            for mesh_device in mesh_devices:
-                matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
+            for mesh_device in mesh_device_info.get("bulbsArray", []):
+                matching_device = next((device for device in device_info if device["id"] == mesh_device.get("switchID")),
                                        None)
-                if matching_device is not None:
-                    created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
+                bluetooth_only = matching_device is None
+                if bluetooth_only:
+                    # Bluetooth-only devices (no Wi-Fi radio) have no entry in the account's device list and no
+                    # switchID. They are still controllable through a Wi-Fi hub device in the same home, since
+                    # commands and status are addressed by mesh ID. Their mesh deviceID stands in for the missing
+                    # cloud ID: it is unique per device, and consumers (Home Assistant among them) key devices
+                    # by device_id.
+                    # They also have no cloud online flag. Starting them offline left them unavailable until a
+                    # status page happened to list them, and a hub only lists some of its mesh after a restart, so
+                    # some bulbs stayed unavailable indefinitely. Start them online; status pages and pushes still
+                    # mark them offline when the mesh reports it.
+                    matching_device = {"id": mesh_device.get("deviceID"), "is_online": True}
 
-                    home_devices.append(created_device)
+                created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
+                created_device.bluetooth_only = bluetooth_only
+                home_devices.append(created_device)
 
             room_json = []
             group_json = []

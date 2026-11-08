@@ -120,6 +120,7 @@ class CyncDevice(CyncControllable):
         self.device_type_id = device_type_id
         self._capabilities = DEVICE_CAPABILITIES.get(self.device_type_id, {})
         self._command_client = command_client
+        self.bluetooth_only = False
         self._mesh_group_id = self.mesh_device_id // 1000
         self.isolated_mesh_id = self.mesh_device_id % 1000
 
