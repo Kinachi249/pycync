@@ -89,7 +89,11 @@ class Cync:
                     # commands and status are addressed by mesh ID. Their mesh deviceID stands in for the missing
                     # cloud ID: it is unique per device, and consumers (Home Assistant among them) key devices
                     # by device_id.
-                    matching_device = {"id": mesh_device.get("deviceID")}
+                    # They also have no cloud online flag. Starting them offline left them unavailable until a
+                    # status page happened to list them, and a hub only lists some of its mesh after a restart, so
+                    # some bulbs stayed unavailable indefinitely. Start them online; status pages and pushes still
+                    # mark them offline when the mesh reports it.
+                    matching_device = {"id": mesh_device.get("deviceID"), "is_online": True}
 
                 created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
                 created_device.bluetooth_only = bluetooth_only

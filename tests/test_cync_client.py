@@ -82,7 +82,7 @@ async def test_refresh_home_info(auth_client, command_client):
     assert office_light.device_id == 1234567890004
     assert office_light.bluetooth_only is True
     assert office_light.isolated_mesh_id == 4
-    assert office_light.is_online is False
+    assert office_light.is_online is True
 
     bedroom: CyncRoom = next(room for room in rooms if room.name == "Bedroom")
     assert bedroom is not None
