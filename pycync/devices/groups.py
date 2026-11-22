@@ -88,10 +88,12 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
 
     @property
     def capabilities(self) -> frozenset[CyncCapability]:
-        all_capabilities = frozenset({capability for capability in CyncCapability})
-        return (all_capabilities
-                .intersection([frozenset(device.capabilities) for device in self.devices])
-                .intersection([group.capabilities for group in self.groups]))
+        # A room supports what EVERY member supports: its own devices plus its (non-empty) groups.
+        member_capabilities = [frozenset(device.capabilities) for device in self.devices]
+        member_capabilities.extend(group.capabilities for group in self.groups if group.devices)
+        if not member_capabilities:
+            return frozenset()
+        return frozenset.intersection(*member_capabilities)
 
     @property
     def name(self) -> str:
@@ -114,7 +116,7 @@ class CyncRoom(GroupedCyncDevices, CyncControllable):
 
     def get_device_types(self) -> frozenset[type[CyncDevice]]:
         return frozenset({type(device) for device in self.devices}).union(
-            [group.get_device_types() for group in self.groups])
+            *[group.get_device_types() for group in self.groups])
 
     async def turn_on(self):
         if not self.supports_capability(CyncCapability.ON_OFF):
@@ -169,8 +171,10 @@ class CyncGroup(GroupedCyncDevices, CyncControllable):
 
     @property
     def capabilities(self) -> frozenset[CyncCapability]:
-        all_capabilities = frozenset({capability for capability in CyncCapability})
-        return all_capabilities.intersection([frozenset(device.capabilities) for device in self.devices])
+        # A group supports what EVERY device in it supports.
+        if not self.devices:
+            return frozenset()
+        return frozenset.intersection(*[frozenset(device.capabilities) for device in self.devices])
 
     @property
     def name(self) -> str:
