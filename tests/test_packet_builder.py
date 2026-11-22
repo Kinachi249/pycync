@@ -38,6 +38,23 @@ def test_build_power_state_request_packet_grouped_device(mocker):
 
     assert power_state_request_packet == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000601d01102010000ca7e")
 
+def test_build_power_state_request_packet_room(mocker):
+    """Rooms/groups have mesh ids of 32768+ and must be written as a 2-byte address."""
+    mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
+    mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
+
+    power_on_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, 32776, 0, True)
+
+    assert power_on_packet == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000880d011020100004b7e")
+
+def test_build_power_state_off_request_packet_room(mocker):
+    mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
+    mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
+
+    power_off_packet = packet_builder.build_power_state_request_packet(TEST_DEVICE_ID, 32776, 0, False)
+
+    assert power_off_packet == bytearray.fromhex("730000001f00005ba00001007e01010000f8d00d0001010000000880d011020000004a7e")
+
 def test_build_brightness_request_packet(mocker):
     mocker.patch("pycync.tcp.packet_builder._get_and_increment_packet_counter", return_value=1)
     mocker.patch("pycync.tcp.inner_packet_builder._get_and_increment_sequence_bytes", return_value=int(257).to_bytes(4, "little"))
