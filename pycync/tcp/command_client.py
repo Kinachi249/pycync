@@ -72,9 +72,8 @@ class CommandClient:
     async def set_power_state(self, controllable: CyncControllable, is_on: bool):
         """Set device(s) to either on or off."""
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
-        hub_device = await self._fetch_hub_device(associated_home)
-
-        await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, controllable.mesh_group_id, is_on)
+        for hub_device in await self._fetch_hub_devices(associated_home):
+            await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, controllable.mesh_group_id, is_on)
 
     async def set_brightness(self, controllable: CyncControllable, brightness: int):
         """Sets the brightness. Must be between 0 and 100 inclusive."""
@@ -82,9 +81,8 @@ class CommandClient:
             raise CyncError("Brightness must be between 0 and 100 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
-        hub_device = await self._fetch_hub_device(associated_home)
-
-        await self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
+        for hub_device in await self._fetch_hub_devices(associated_home):
+            await self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
 
     async def set_color_temp(self, controllable: CyncControllable, color_temp: int):
         """
@@ -95,9 +93,8 @@ class CommandClient:
             raise CyncError("Color temperature must be between 1 and 100 inclusive.")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
-        hub_device = await self._fetch_hub_device(associated_home)
-
-        await self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
+        for hub_device in await self._fetch_hub_devices(associated_home):
+            await self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
 
     async def set_rgb(self, controllable: CyncControllable, rgb: tuple[int, int, int]):
         """Sets the RGB color. Each color must be between 0 and 255 inclusive."""
@@ -105,9 +102,8 @@ class CommandClient:
             raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
-        hub_device = await self._fetch_hub_device(associated_home)
-
-        await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
+        for hub_device in await self._fetch_hub_devices(associated_home):
+            await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
 
     async def set_combo(self, controllable: CyncControllable, is_on: bool, brightness: int, color_temp: int | None = None, rgb: tuple[int, int, int] | None = None):
         if brightness < 0 or brightness > 100:
@@ -120,9 +116,8 @@ class CommandClient:
             raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
-        hub_device = await self._fetch_hub_device(associated_home)
-
-        await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb)
+        for hub_device in await self._fetch_hub_devices(associated_home):
+            await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb)
 
     async def shut_down(self):
         await self._tcp_manager.shut_down()
@@ -134,6 +129,21 @@ class CommandClient:
                 await callback(updated_data)
             else:
                 callback(updated_data)
+
+    async def _fetch_hub_devices(self, home: CyncHome) -> list[CyncDevice]:
+        """
+        Every Wi-Fi connected hub in a home, for sending a command.
+        A hub only reaches the part of the Bluetooth mesh within its range, and the first connected hub is not
+        necessarily near the target device, so a command sent through one hub can silently never arrive. Mesh
+        commands set an absolute state, so sending one through several hubs is safe.
+        """
+        first = await self._fetch_hub_device(home)
+        hubs = [device for device in home.get_flattened_device_list()
+                if CyncCapability.CAN_ACT_AS_WIFI_PROXY in device.capabilities and device.wifi_connected]
+        if first not in hubs:
+            hubs.insert(0, first)
+        self._LOGGER.debug("Sending command via hubs: %s", [hub.name for hub in hubs])
+        return hubs
 
     async def _fetch_hub_device(self, home: CyncHome) -> CyncDevice:
         """
