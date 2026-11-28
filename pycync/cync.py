@@ -16,7 +16,7 @@ from pycync.tcp.command_client import CommandClient
 
 
 class Cync:
-    def __init__(self, auth: Auth):
+    def __init__(self, auth: Auth, use_bluetooth: bool = True):
         """
         Initialize a Cync object.
         The static create function should be used to create a new Cync object.
@@ -24,14 +24,20 @@ class Cync:
         if not auth.user:
             raise MissingAuthError("No logged in user exists on auth object.")
         self._auth = auth
-        self._command_client = CommandClient(auth.user)
+        self._command_client = CommandClient(auth.user, use_bluetooth=use_bluetooth)
 
     @classmethod
-    async def create(cls, auth: Auth, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
-        cync_api = Cync(auth)
+    async def create(
+        cls,
+        auth: Auth,
+        ssl_context: ssl.SSLContext = None,
+        ssl_context_no_verify: ssl.SSLContext = None,
+        use_bluetooth: bool = True
+    ):
+        cync_api = Cync(auth, use_bluetooth=use_bluetooth)
 
         await cync_api.refresh_home_info()
-        cync_api._command_client.start_connection(ssl_context, ssl_context_no_verify)
+        await cync_api._command_client.start_bluetooth(ssl_context, ssl_context_no_verify)
 
         return cync_api
 
@@ -75,18 +81,31 @@ class Cync:
             home_devices: list[CyncDevice] = []
             rooms: list[CyncRoom] = []
             groups: list[CyncGroup] = []
-            home: CyncHome = CyncHome(home_json["name"], home_json["id"], [], [])
+            home: CyncHome = CyncHome(
+                home_json["name"],
+                home_json["id"],
+                [],
+                [],
+                mesh_address=home_json.get("mac"),
+                mesh_password=home_json.get("access_key")
+            )
 
             mesh_device_info = await self._auth._send_user_request(
                 f"{REST_API_BASE_URL}/v2/product/{home_json["product_id"]}/device/{home_json["id"]}/property")
-            mesh_devices = [mesh_device for mesh_device in mesh_device_info.get("bulbsArray", []) if
-                            "switchID" in mesh_device]
-            for mesh_device in mesh_devices:
-                matching_device = next((device for device in device_info if device["id"] == mesh_device["switchID"]),
-                                       None)
+            for mesh_device in mesh_device_info.get("bulbsArray", []):
+                if "deviceID" not in mesh_device:
+                    continue
+                matching_device = None
+                if "switchID" in mesh_device:
+                    matching_device = next(
+                        (device for device in device_info if device["id"] == mesh_device["switchID"]),
+                        None
+                    )
                 if matching_device is not None:
                     created_device = create_device(matching_device, mesh_device, home.home_id, self._command_client)
-
+                    home_devices.append(created_device)
+                elif "mac" in mesh_device:
+                    created_device = create_device({}, mesh_device, home.home_id, self._command_client)
                     home_devices.append(created_device)
 
             room_json = []

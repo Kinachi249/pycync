@@ -144,14 +144,20 @@ class TcpManager:
         """Probe all account devices to see which ones are responsive over Wi-Fi."""
 
         for device in devices:
+            if device.device_id is None:
+                continue
             probe_device_packet = packet_builder.build_probe_request_packet(device.device_id)
             await self._send_request(probe_device_packet)
 
     async def shut_down(self):
         """Shut down the Cync client connection."""
 
-        await self._send_request(bytes.fromhex('e30000000103'))
-        self._process_packet_task.cancel()
+        if self._tcp_client_startup and not self._tcp_client_startup.done():
+            self._tcp_client_startup.cancel()
+        if self._login_acknowledged and self._transport is not None:
+            await self._send_request(bytes.fromhex('e30000000103'))
+        if self._process_packet_task is not None:
+            self._process_packet_task.cancel()
 
     async def update_mesh_devices(self, hub_devices: list[CyncDevice]):
         """Get new device state."""

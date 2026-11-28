@@ -19,10 +19,11 @@ def create_device(device_info: dict[str, Any], mesh_device_info: dict[str, Any],
     is_online = device_info.get("is_online", False)
     wifi_connected = wifi_connected
     device_id = device_info.get("id")
-    mesh_device_id = mesh_device_info.get("deviceID")
+    raw_mesh_device_id = mesh_device_info.get("deviceID")
+    mesh_device_id = int(raw_mesh_device_id) if raw_mesh_device_id is not None else None
     name = mesh_device_info.get("displayName")
     device_type = DEVICE_TYPES.get(device_type_id, DeviceType.UNKNOWN)
-    mac = device_info.get("mac")
+    mac = mesh_device_info.get("mac") or device_info.get("mac")
     product_id = device_info.get("product_id")
     authorize_code = device_info.get("authorize_code")
 
