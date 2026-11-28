@@ -23,11 +23,14 @@ class GroupedCyncDevices(ABC):
 class CyncHome:
     """Represents a "home" in the Cync app."""
 
-    def __init__(self, name: str, home_id: int, rooms: list[CyncRoom], global_devices: list[CyncDevice]):
+    def __init__(self, name: str, home_id: int, rooms: list[CyncRoom], global_devices: list[CyncDevice],
+                 mesh_address: str | None = None, mesh_password: str | None = None):
         self.name = name
         self.home_id = home_id
         self.rooms = rooms
         self.global_devices = global_devices
+        self.mesh_address = str(mesh_address) if mesh_address is not None else None
+        self.mesh_password = str(mesh_password) if mesh_password is not None else None
 
     @classmethod
     def from_dict(cls, data: dict) -> CyncHome:
@@ -35,14 +38,18 @@ class CyncHome:
         home_id = data.get("home_id")
         rooms = [CyncRoom.from_dict(room) for room in data.get("rooms")]
         global_devices = [CyncDevice.from_dict(device) for device in data.get("global_devices")]
+        mesh_address = data.get("mesh_address")
+        mesh_password = data.get("mesh_password")
 
-        return CyncHome(name, home_id, rooms, global_devices)
+        return CyncHome(name, home_id, rooms, global_devices, mesh_address=mesh_address, mesh_password=mesh_password)
 
     def contains_device_id(self, device_id: int) -> bool:
         """
         Determines whether a given device ID exists in this home.
         The home is searched recursively, so each room and group within the home will be searched.
         """
+        if device_id is None:
+            return False
 
         search_result = next((device for device in self.get_flattened_device_list() if device.device_id == device_id),
                              None)

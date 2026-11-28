@@ -13,6 +13,7 @@ import logging
 
 from .packet import MessageType, ParsedMessage, PipeCommandCode
 from .tcp_manager import TcpManager
+from pycync.bluetooth.bluetooth_manager import BluetoothManager
 from pycync.devices.controllable import CyncControllable
 from pycync.exceptions import NoHubConnectedError, CyncError
 from pycync.devices.capabilities import CyncCapability
@@ -27,14 +28,56 @@ if TYPE_CHECKING:
 class CommandClient:
     _LOGGER = logging.getLogger(__name__)
 
-    def __init__(self, user: User):
+    def __init__(self, user: User, use_bluetooth: bool = True):
         self._user = user
+        self._use_bluetooth = use_bluetooth
 
         self._device_statuses_updated = False
-        self._tcp_manager: TcpManager = None
+        self._tcp_manager: TcpManager | None = None
+        self._ssl_context: ssl.SSLContext | None = None
+        self._ssl_context_no_verify: ssl.SSLContext | None = None
+        self._bluetooth_manager = BluetoothManager(self._send_update_to_listener)
 
     def start_connection(self, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None):
-        self._tcp_manager = TcpManager(self._user, self.on_message_received, ssl_context, ssl_context_no_verify)
+        self._ssl_context = ssl_context
+        self._ssl_context_no_verify = ssl_context_no_verify
+        if self._tcp_manager is None:
+            self._tcp_manager = TcpManager(self._user, self.on_message_received, ssl_context, ssl_context_no_verify)
+
+    def _ensure_tcp_started(self):
+        if self._tcp_manager is None:
+            self.start_connection(self._ssl_context, self._ssl_context_no_verify)
+
+    async def start_bluetooth(self, ssl_context: ssl.SSLContext = None, ssl_context_no_verify: ssl.SSLContext = None) -> bool:
+        """
+        Attempt to connect to all homes over Bluetooth. If Bluetooth is disabled or
+        not available for any home, start the Wi-Fi cloud TCP connection as fallback.
+        """
+        self._ssl_context = ssl_context
+        self._ssl_context_no_verify = ssl_context_no_verify
+
+        if not self._use_bluetooth:
+            self.start_connection(ssl_context, ssl_context_no_verify)
+            return False
+
+        homes = device_storage.get_user_homes(self._user.user_id)
+        if not homes:
+            self.start_connection(ssl_context, ssl_context_no_verify)
+            return False
+
+        all_connected = True
+        any_connected = False
+        for home in homes:
+            connected = await self._bluetooth_manager.connect_home(home)
+            if connected:
+                any_connected = True
+            else:
+                all_connected = False
+
+        if not all_connected:
+            self.start_connection(ssl_context, ssl_context_no_verify)
+
+        return any_connected
 
     async def on_message_received(self, parsed_message: ParsedMessage):
         match parsed_message.message_type:
@@ -59,19 +102,29 @@ class CommandClient:
         await self._tcp_manager.probe_devices(device_storage.get_flattened_devices(self._user.user_id))
 
     async def update_mesh_devices(self):
-        """Get new device state."""
+        """Get new device state, using Bluetooth if available and falling back to Wi-Fi cloud."""
         homes_for_user = device_storage.get_user_homes(self._user.user_id)
 
         hub_devices: list[CyncDevice] = []
         for home in homes_for_user:
+            if self._use_bluetooth and await self._bluetooth_manager.update_mesh_devices(home):
+                continue
+            self._ensure_tcp_started()
             hub_device = await self._fetch_hub_device(home)
             hub_devices.append(hub_device)
 
-        await self._tcp_manager.update_mesh_devices(hub_devices)
+        if hub_devices:
+            await self._tcp_manager.update_mesh_devices(hub_devices)
 
     async def set_power_state(self, controllable: CyncControllable, is_on: bool):
         """Set device(s) to either on or off."""
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        if self._use_bluetooth and await self._bluetooth_manager.set_power_state(
+            associated_home, controllable.mesh_reference_id, controllable.mesh_group_id, is_on
+        ):
+            return
+
+        self._ensure_tcp_started()
         hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_power_state(hub_device, controllable.mesh_reference_id, controllable.mesh_group_id, is_on)
@@ -82,6 +135,12 @@ class CommandClient:
             raise CyncError("Brightness must be between 0 and 100 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        if self._use_bluetooth and await self._bluetooth_manager.set_brightness(
+            associated_home, controllable.mesh_reference_id, brightness
+        ):
+            return
+
+        self._ensure_tcp_started()
         hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_brightness(hub_device, controllable.mesh_reference_id, brightness)
@@ -95,6 +154,12 @@ class CommandClient:
             raise CyncError("Color temperature must be between 1 and 100 inclusive.")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        if self._use_bluetooth and await self._bluetooth_manager.set_color_temp(
+            associated_home, controllable.mesh_reference_id, color_temp
+        ):
+            return
+
+        self._ensure_tcp_started()
         hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_color_temp(hub_device, controllable.mesh_reference_id, color_temp)
@@ -105,6 +170,12 @@ class CommandClient:
             raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        if self._use_bluetooth and await self._bluetooth_manager.set_rgb(
+            associated_home, controllable.mesh_reference_id, rgb
+        ):
+            return
+
+        self._ensure_tcp_started()
         hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_rgb(hub_device, controllable.mesh_reference_id, rgb)
@@ -120,12 +191,20 @@ class CommandClient:
             raise CyncError("Each RGB value must be between 0 and 255 inclusive")
 
         associated_home = device_storage.get_home_by_id(self._user.user_id, controllable.parent_home_id)
+        if self._use_bluetooth and await self._bluetooth_manager.set_combo(
+            associated_home, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb
+        ):
+            return
+
+        self._ensure_tcp_started()
         hub_device = await self._fetch_hub_device(associated_home)
 
         await self._tcp_manager.set_combo(hub_device, controllable.mesh_reference_id, is_on, brightness, color_temp, rgb)
 
     async def shut_down(self):
-        await self._tcp_manager.shut_down()
+        await self._bluetooth_manager.shut_down()
+        if self._tcp_manager is not None:
+            await self._tcp_manager.shut_down()
 
     async def _send_update_to_listener(self, updated_data: dict[str, CyncDevice]):
         callback = device_storage.get_user_device_callback(self._user.user_id)

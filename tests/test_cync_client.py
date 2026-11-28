@@ -72,7 +72,11 @@ async def test_refresh_home_info(auth_client, command_client):
     office_lamp: CyncGroup = office.groups[0]
     assert office_lamp is not None
     assert office_lamp.name == "Office Lamp"
-    assert len(office_lamp.devices) == 0
+    assert len(office_lamp.devices) == 1
+    assert office_lamp.devices[0].name == "Office Light"
+    assert office_lamp.devices[0].device_id is None
+    assert office_lamp.devices[0].isolated_mesh_id == 4
+    assert office_lamp.devices[0].mac == "123456ABCDEF"
 
     bedroom: CyncRoom = next(room for room in rooms if room.name == "Bedroom")
     assert bedroom is not None
@@ -82,6 +86,7 @@ async def test_refresh_home_info(auth_client, command_client):
     assert device.parent_home_id == 1234567890
     assert device.device_id == 6874
     assert device.isolated_mesh_id == 2
+    assert homes[0].mesh_password == "777"
 
     porch: CyncRoom = next(room for room in rooms if room.name == "Front Porch")
     assert porch is not None
